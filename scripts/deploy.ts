@@ -2,16 +2,8 @@ import { ethers } from "hardhat"
 const SAFE_PROXY = "0x0000000000000000000000000000000000000001"
 
 async function main(safeProxy: string) {
-  const scopedFlag = await ethers
-    .getContractFactory("ScopedFlag")
-    .then((factory) => factory.deploy())
-
   const permissions = await ethers
-    .getContractFactory("Permissions", {
-      libraries: {
-        ScopedFlag: scopedFlag.address,
-      },
-    })
+    .getContractFactory("Permissions")
     .then((factory) => factory.deploy())
 
   const safeModule = await ethers

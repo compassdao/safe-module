@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity 0.8.6;
 
 import "./Ownable.sol";
 import "./GnosisSafe.sol";
@@ -22,8 +22,8 @@ contract SafeModule is Ownable {
 
   event AssignRoleToMember(address member, uint16 roleId);
   event RevokeRoleFromMember(address member, uint16 roleId);
-  event RoleDeprecated(uint16 roleId);
-  event MemberDropped(address member);
+  event DeprecateRole(uint16 roleId);
+  event DropMember(address member);
   event ExecTransaction(
     address to,
     uint256 value,
@@ -32,7 +32,16 @@ contract SafeModule is Ownable {
     address sender
   );
 
-  function assignRole(address member, uint16 roleId) external onlyOwner {
+  modifier onlyValidRoleId(uint16 roleId) {
+    require(deprecatedRoles[roleId] != true, "Role deprecated");
+    _;
+  }
+
+  function assignRole(address member, uint16 roleId)
+    external
+    onlyOwner
+    onlyValidRoleId(roleId)
+  {
     require(roleId != 0, "Invalid roleId");
 
     bool assigned = false;
@@ -73,7 +82,7 @@ contract SafeModule is Ownable {
 
   function deprecateRole(uint16 roleId) external onlyOwner {
     deprecatedRoles[roleId] = true;
-    emit RoleDeprecated(roleId);
+    emit DeprecateRole(roleId);
   }
 
   function dropMember(address member) external onlyOwner {
@@ -81,7 +90,7 @@ contract SafeModule is Ownable {
       members[member][i] = 0;
     }
 
-    emit MemberDropped(member);
+    emit DropMember(member);
   }
 
   function rolesOf(address member)
@@ -106,7 +115,7 @@ contract SafeModule is Ownable {
     uint16 roleId,
     address targetAddr,
     Operation op
-  ) external onlyOwner {
+  ) external onlyOwner onlyValidRoleId(roleId) {
     Permissions.allowContract(roles[roleId], roleId, targetAddr, op);
   }
 
@@ -122,7 +131,7 @@ contract SafeModule is Ownable {
     address targetAddr,
     bytes4 funcSig,
     Operation op
-  ) external onlyOwner {
+  ) external onlyOwner onlyValidRoleId(roleId) {
     Permissions.allowFunction(roles[roleId], roleId, targetAddr, funcSig, op);
   }
 
@@ -143,7 +152,7 @@ contract SafeModule is Ownable {
     Comparison[] memory cps,
     bytes[] calldata expectedValues,
     Operation op
-  ) external onlyOwner {
+  ) external onlyOwner onlyValidRoleId(roleId) {
     Permissions.allowFunctionWithParameter(
       roles[roleId],
       roleId,
@@ -162,8 +171,8 @@ contract SafeModule is Ownable {
     uint256 value,
     bytes calldata data,
     Operation inputOP
-  ) public returns (bool success) {
-    // exec
+  ) public {
+    _execTransaction(to, value, data, inputOP);
   }
 
   function _execTransaction(

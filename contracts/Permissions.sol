@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity 0.8.6;
 
 enum ParameterType {
   Static,
@@ -34,7 +34,6 @@ struct ScopedContract {
 }
 
 struct Role {
-  mapping(address => bool) members;
   mapping(address => ScopedContract) contracts;
   mapping(bytes32 => uint256) functions;
   mapping(bytes32 => bytes32) expectedValues;
@@ -73,9 +72,6 @@ library Permissions {
     Operation operation,
     uint256 funcScopedFlag
   );
-
-  /// Sender is not a member of the role
-  error NoMembership();
 
   /// Function signature too short
   error FunctionSignatureTooShort();
@@ -138,10 +134,6 @@ library Permissions {
     bytes calldata data,
     Operation inputOP
   ) public view {
-    if (!role.members[msg.sender]) {
-      revert NoMembership();
-    }
-
     _checkTransaction(role, to, value, data, inputOP);
   }
 
@@ -169,9 +161,7 @@ library Permissions {
         revert FunctionNotAllowed();
       }
 
-      (Operation scopedFuncOP, bool isBypass, ) = ScopedFlag.unpackLeft(
-        funcScopedFlag
-      );
+      (Operation scopedFuncOP, bool isBypass, ) = _unpackLeft(funcScopedFlag);
 
       _checkOP(value, inputOP, scopedFuncOP);
 
@@ -192,11 +182,13 @@ library Permissions {
     bytes memory data
   ) internal view {
     bytes4 funcSig = bytes4(data);
-    (, , uint256 argsCount) = ScopedFlag.unpackLeft(funcScopedFlag);
+    (, , uint256 argsCount) = _unpackLeft(funcScopedFlag);
 
     for (uint256 i = 0; i < argsCount; ++i) {
-      (bool isScoped, ParameterType paramType, Comparison cp) = ScopedFlag
-        .unpackRight(funcScopedFlag, i);
+      (bool isScoped, ParameterType paramType, Comparison cp) = _unpackRight(
+        funcScopedFlag,
+        i
+      );
 
       if (!isScoped) {
         continue;
@@ -403,7 +395,7 @@ library Permissions {
     bytes4 funcSig,
     Operation op
   ) external {
-    uint256 funcScopedFlag = ScopedFlag.packLeft(0, op, true, 0);
+    uint256 funcScopedFlag = _packLeft(0, op, true, 0);
     role.functions[_key4Func(targetAddr, funcSig)] = funcScopedFlag;
 
     emit AllowFunction(roleId, targetAddr, funcSig, op, funcScopedFlag);
@@ -449,10 +441,10 @@ library Permissions {
       }
     }
 
-    uint256 funcScopedFlag = ScopedFlag.packLeft(0, op, false, argsCount);
+    uint256 funcScopedFlag = _packLeft(0, op, false, argsCount);
 
     for (uint256 i = 0; i < argsCount; ++i) {
-      funcScopedFlag = ScopedFlag.packRight(
+      funcScopedFlag = _packRight(
         funcScopedFlag,
         i,
         isScopeds[i],
@@ -515,20 +507,18 @@ library Permissions {
       revert UnsuitableDynamic32ExpectedValueSize();
     }
   }
-}
 
-library ScopedFlag {
   // LEFT SIDE
   // 2   bits -> options
   // 1   bits -> isBypass
   // 5   bits -> unused
   // 8   bits -> length
-  function packLeft(
+  function _packLeft(
     uint256 scopedFlag,
     Operation op,
     bool isBypass,
     uint256 length
-  ) public pure returns (uint256) {
+  ) internal pure returns (uint256) {
     // Wipe the LEFT SIDE clean. Start from there
     scopedFlag = (scopedFlag << 16) >> 16;
 
@@ -546,8 +536,8 @@ library ScopedFlag {
     return scopedFlag;
   }
 
-  function unpackLeft(uint256 scopedFlag)
-    public
+  function _unpackLeft(uint256 scopedFlag)
+    internal
     pure
     returns (
       Operation op,
@@ -566,13 +556,13 @@ library ScopedFlag {
   // 48  bits -> isScoped
   // 96  bits -> paramType (2 bits per entry 48*2)
   // 96  bits -> paramComp (2 bits per entry 48*2)
-  function packRight(
+  function _packRight(
     uint256 scopedFlag,
     uint256 index,
     bool isScoped,
     ParameterType paramType,
     Comparison paramComp
-  ) public pure returns (uint256) {
+  ) internal pure returns (uint256) {
     uint256 isScopedMask = 1 << (index + 96 + 96);
     uint256 paramTypeMask = 3 << (index * 2 + 96);
     uint256 paramCompMask = 3 << (index * 2);
@@ -592,8 +582,8 @@ library ScopedFlag {
     return scopedFlag;
   }
 
-  function unpackRight(uint256 scopedFlag, uint256 index)
-    public
+  function _unpackRight(uint256 scopedFlag, uint256 index)
+    internal
     pure
     returns (
       bool isScoped,
