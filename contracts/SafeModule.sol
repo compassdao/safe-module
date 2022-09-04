@@ -172,6 +172,10 @@ contract SafeModule is Ownable {
     bytes memory data,
     Operation inputOP
   ) internal {
+    require(
+      inputOP == Operation.Send || inputOP == Operation.DelegateCall,
+      "Input invalid operation"
+    );
     _hasPermission(to, value, data, inputOP);
 
     require(
@@ -179,7 +183,9 @@ contract SafeModule is Ownable {
         to,
         value,
         data,
-        Enum.Operation.Call
+        inputOP == Operation.DelegateCall
+          ? Enum.Operation.DelegateCall
+          : Enum.Operation.Call
       ),
       "Failed in execution in safe"
     );
@@ -193,7 +199,7 @@ contract SafeModule is Ownable {
     bytes memory data,
     Operation inputOP
   ) internal view {
-    bool checkOnce = false;
+    bool checkAtLeastOnce = false;
     uint16[] memory validRoles = rolesOf(_msgSender());
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
@@ -203,9 +209,9 @@ contract SafeModule is Ownable {
       }
 
       Permissions.check(roles[roleId], to, value, data, inputOP);
-      checkOnce = true;
+      checkAtLeastOnce = true;
     }
 
-    assert(checkOnce);
+    assert(checkAtLeastOnce);
   }
 }

@@ -2,7 +2,6 @@
   "name": "hardhat-project",
   "license": "MIT",
   "scripts": {
-    "prettier2": "prettier --write '**/*.{js,json,md,yml,yaml,sol}'",
     "prepare": "husky install",
     "lint": "run-s lint:*",
     "lint:prettier": "prettier --check .",
