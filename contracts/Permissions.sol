@@ -10,9 +10,7 @@ enum ParameterType {
 enum Comparison {
   Eq,
   Gt,
-  Gte,
-  Lt,
-  Lte
+  Lt
 }
 
 enum Scope {
@@ -42,12 +40,14 @@ struct Role {
 library Permissions {
   uint256 internal constant _SCOPE_MAX_PARAMS = 48;
 
-  event AllowContract(uint16 role, address targetAddress, Operation operation);
+  event AllowContract(bytes32 role, address targetAddress, Operation operation);
 
-  event RevokeContract(uint16 role, address targetAddress);
+  event RevokeContract(bytes32 role, address targetAddress);
+
+  event ScopeContract(bytes32 role, address targetAddress);
 
   event AllowFunction(
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddress,
     bytes4 functionSig,
     Operation operation,
@@ -55,14 +55,14 @@ library Permissions {
   );
 
   event RevokeFunction(
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddress,
     bytes4 functionSig,
     uint256 funcScopedFlag
   );
 
-  event AllowFunctionWithParameter(
-    uint16 roleId,
+  event ScopeFunction(
+    bytes32 roleId,
     address targetAddress,
     bytes4 functionSig,
     bool[] isScopeds,
@@ -85,29 +85,14 @@ library Permissions {
   /// operation is not allow
   error OperationNotAllow();
 
-  /// Input operation must be one of 'Send' or 'DelegateCall'
-  error InputOperationUnclear();
-
-  /// Role not allowed to send to target address
-  error SendNotAllowed();
-
-  /// Role not allowed to delegate call to target address
-  error DelegateCallNotAllowed();
-
   /// Input parameter is not equal to expected
   error ParameterNotEqualToExpected();
 
   /// Input parameter is not less than expected
   error ParameterNotLessThanExpected();
 
-  /// Input parameter is not less than equal to expected
-  error ParameterNotLessThanEqualToExpected();
-
   /// Input parameter is not greater than expected
   error ParameterNotGreaterThanExpected();
-
-  /// Input parameter is not greater than equal to expected
-  error ParameterNotGreaterThanEqualToExpected();
 
   /// The provided calldata for execution is too short, or an OutOfBounds scoped parameter was configured
   error CalldataOutOfBounds();
@@ -118,7 +103,7 @@ library Permissions {
   /// Exceeds the max number of params supported
   error ScopeMaxParametersExceeded();
 
-  /// Not possible to define gt/gte/lt/lte for Dynamic types
+  /// Not possible to define gt/lt for Dynamic types
   error UnsuitableRelativeComparison();
 
   /// Expected value for static types should have a size of exactly 32 bytes
@@ -130,17 +115,15 @@ library Permissions {
   function check(
     Role storage role,
     address to,
-    uint256 value,
     bytes calldata data,
     Operation inputOP
   ) public view {
-    _checkTransaction(role, to, value, data, inputOP);
+    _checkTransaction(role, to, data, inputOP);
   }
 
   function _checkTransaction(
     Role storage role,
     address targetAddr,
-    uint256 value,
     bytes memory data,
     Operation inputOP
   ) internal view {
@@ -150,7 +133,7 @@ library Permissions {
 
     ScopedContract storage scopedContract = role.contracts[targetAddr];
     if (scopedContract.scope == Scope.Contract) {
-      _checkOP(value, inputOP, scopedContract.op);
+      _checkOP(inputOP, scopedContract.op);
       return;
     } else if (scopedContract.scope == Scope.Function) {
       uint256 funcScopedFlag = role.functions[
@@ -163,7 +146,7 @@ library Permissions {
 
       (Operation scopedFuncOP, bool isBypass, ) = _unpackLeft(funcScopedFlag);
 
-      _checkOP(value, inputOP, scopedFuncOP);
+      _checkOP(inputOP, scopedFuncOP);
 
       if (isBypass != true) {
         _checkParameters(role, funcScopedFlag, targetAddr, data);
@@ -216,37 +199,22 @@ library Permissions {
     } else if (cp == Comparison.Gt && inputValue <= expectedValue) {
       // todo should convert to int or uint ?
       revert ParameterNotGreaterThanExpected();
-    } else if (cp == Comparison.Gte && inputValue < expectedValue) {
-      revert ParameterNotGreaterThanEqualToExpected();
     } else if (cp == Comparison.Lt && inputValue >= expectedValue) {
       revert ParameterNotLessThanExpected();
-    } else if (cp == Comparison.Lte && inputValue > expectedValue) {
-      revert ParameterNotLessThanEqualToExpected();
     }
   }
 
-  function _checkOP(
-    uint256 value,
-    Operation inputOP,
-    Operation scopedOP
-  ) internal pure {
-    if (scopedOP == Operation.None) {
-      revert OperationNotAllow();
-    } else if (inputOP == Operation.Both || inputOP == Operation.None) {
-      revert InputOperationUnclear();
-    } else if (inputOP == Operation.Send) {
-      // isSend && !canSend
-      if (
-        value > 0 && scopedOP != Operation.Send && scopedOP != Operation.Both
-      ) {
-        revert SendNotAllowed();
-      }
-    } else {
-      // isDelegateCall && !canDelegateCall
-      if (scopedOP != Operation.DelegateCall && scopedOP != Operation.Both) {
-        revert DelegateCallNotAllowed();
-      }
+  function _checkOP(Operation inputOP, Operation scopedOP) internal pure {
+    if (
+      ((scopedOP == Operation.Send || scopedOP == Operation.DelegateCall) &&
+        inputOP == scopedOP) ||
+      (scopedOP == Operation.Both &&
+        (inputOP == Operation.Send || inputOP == Operation.DelegateCall))
+    ) {
+      return;
     }
+
+    revert OperationNotAllow();
   }
 
   function _key4Func(address addr, bytes4 funcSig)
@@ -371,7 +339,7 @@ library Permissions {
 
   function allowContract(
     Role storage role,
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     Operation op
   ) external {
@@ -381,16 +349,25 @@ library Permissions {
 
   function revokeContract(
     Role storage role,
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr
   ) external {
     role.contracts[targetAddr] = ScopedContract(Scope.None, Operation.None);
     emit RevokeContract(roleId, targetAddr);
   }
 
+  function scopeContract(
+    Role storage role,
+    bytes32 roleId,
+    address targetAddr
+  ) external {
+    role.contracts[targetAddr] = ScopedContract(Scope.Function, Operation.None);
+    emit ScopeContract(roleId, targetAddr);
+  }
+
   function allowFunction(
     Role storage role,
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     bytes4 funcSig,
     Operation op
@@ -403,7 +380,7 @@ library Permissions {
 
   function revokeFunction(
     Role storage role,
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     bytes4 funcSig
   ) external {
@@ -411,9 +388,9 @@ library Permissions {
     emit RevokeFunction(roleId, targetAddr, funcSig, 0);
   }
 
-  function allowFunctionWithParameter(
+  function scopeFunction(
     Role storage role,
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     bytes4 funcSig,
     bool[] memory isScopeds,
@@ -461,7 +438,7 @@ library Permissions {
       ] = _compressExpectedValue(paramTypes[i], expectedValues[i]);
     }
 
-    emit AllowFunctionWithParameter(
+    emit ScopeFunction(
       roleId,
       targetAddr,
       funcSig,
@@ -488,7 +465,8 @@ library Permissions {
     internal
     pure
   {
-    if ((paramType != ParameterType.Static) && (cp != Comparison.Eq)) {
+    // only supports 'eq' comparison for no-static type
+    if (paramType != ParameterType.Static && cp != Comparison.Eq) {
       revert UnsuitableRelativeComparison();
     }
   }

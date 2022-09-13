@@ -8,21 +8,26 @@ import "./Permissions.sol";
 contract SafeModule is Ownable {
   uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
-  mapping(uint16 => Role) internal roles;
-  mapping(address => uint16[_MAX_ROLE_PER_MEMBER]) internal members;
-  mapping(uint16 => bool) deprecatedRoles;
+  mapping(bytes32 => Role) internal roles;
+  mapping(address => bytes32[_MAX_ROLE_PER_MEMBER]) internal members;
+  mapping(bytes32 => bool) deprecatedRoles;
 
-  constructor(address payable safeProxy) {
+  address public _safeProxy;
+
+  constructor(address owner, address payable safeProxy) {
     require(safeProxy != address(0), "Invalid safe proxy");
-    _transferOwnership(safeProxy);
+    _transferOwnership(owner);
+    _safeProxy = safeProxy;
   }
 
   error RoleExceeded();
   error RoleNotFound();
+  error BlankRoleId();
+  error RoleDeprecated();
 
-  event AssignRoleToMember(address member, uint16 roleId);
-  event RevokeRoleFromMember(address member, uint16 roleId);
-  event DeprecateRole(uint16 roleId);
+  event AssignRoleToMember(address member, bytes32 roleId);
+  event RevokeRoleFromMember(address member, bytes32 roleId);
+  event DeprecateRole(bytes32 roleId);
   event DropMember(address member);
   event ExecTransaction(
     address to,
@@ -32,22 +37,25 @@ contract SafeModule is Ownable {
     address sender
   );
 
-  modifier onlyValidRoleId(uint16 roleId) {
-    require(deprecatedRoles[roleId] != true, "Role deprecated");
+  modifier isValidRoleId(bytes32 roleId) {
+    if (roleId == 0) {
+      revert BlankRoleId();
+    } else if (deprecatedRoles[roleId]) {
+      revert RoleDeprecated();
+    }
+
     _;
   }
 
-  function assignRole(address member, uint16 roleId)
+  function assignRole(address member, bytes32 roleId)
     external
     onlyOwner
-    onlyValidRoleId(roleId)
+    isValidRoleId(roleId)
   {
-    require(roleId != 0, "Invalid roleId");
-
     bool assigned = false;
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      if (members[member][i] == 0) {
+      if (members[member][i] == 0 || members[member][i] == roleId) {
         members[member][i] = roleId;
         assigned = true;
         break;
@@ -61,9 +69,11 @@ contract SafeModule is Ownable {
     emit AssignRoleToMember(member, roleId);
   }
 
-  function revokeRole(address member, uint16 roleId) external onlyOwner {
-    require(roleId != 0, "Invalid roleId");
-
+  function revokeRole(address member, bytes32 roleId)
+    external
+    onlyOwner
+    isValidRoleId(roleId)
+  {
     bool revoke = false;
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
@@ -73,14 +83,16 @@ contract SafeModule is Ownable {
       }
     }
 
-    if (revoke == false) {
-      revert RoleNotFound();
+    if (revoke) {
+      emit RevokeRoleFromMember(member, roleId);
     }
-
-    emit RevokeRoleFromMember(member, roleId);
   }
 
-  function deprecateRole(uint16 roleId) external onlyOwner {
+  function deprecateRole(bytes32 roleId)
+    external
+    onlyOwner
+    isValidRoleId(roleId)
+  {
     deprecatedRoles[roleId] = true;
     emit DeprecateRole(roleId);
   }
@@ -96,12 +108,12 @@ contract SafeModule is Ownable {
   function rolesOf(address member)
     public
     view
-    returns (uint16[] memory validRoles)
+    returns (bytes32[] memory validRoles)
   {
-    validRoles = new uint16[](_MAX_ROLE_PER_MEMBER);
+    validRoles = new bytes32[](_MAX_ROLE_PER_MEMBER);
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      uint16 roleId = members[member][i];
+      bytes32 roleId = members[member][i];
 
       if (roleId == 0 || deprecatedRoles[roleId] == true) {
         continue;
@@ -112,39 +124,48 @@ contract SafeModule is Ownable {
   }
 
   function allowContract(
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     Operation op
-  ) external onlyOwner onlyValidRoleId(roleId) {
+  ) external onlyOwner isValidRoleId(roleId) {
     Permissions.allowContract(roles[roleId], roleId, targetAddr, op);
   }
 
-  function revokeContract(uint16 roleId, address targetAddr)
+  function revokeContract(bytes32 roleId, address targetAddr)
     external
     onlyOwner
+    isValidRoleId(roleId)
   {
     Permissions.revokeContract(roles[roleId], roleId, targetAddr);
   }
 
+  function scopeContract(bytes32 roleId, address targetAddr)
+    external
+    onlyOwner
+    isValidRoleId(roleId)
+  {
+    Permissions.scopeContract(roles[roleId], roleId, targetAddr);
+  }
+
   function allowFunction(
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     bytes4 funcSig,
     Operation op
-  ) external onlyOwner onlyValidRoleId(roleId) {
+  ) external onlyOwner isValidRoleId(roleId) {
     Permissions.allowFunction(roles[roleId], roleId, targetAddr, funcSig, op);
   }
 
   function revokeFunction(
-    uint16 roleId,
+    bytes32 roleId,
     address targetAddr,
     bytes4 funcSig
-  ) external onlyOwner {
+  ) external onlyOwner isValidRoleId(roleId) {
     Permissions.revokeFunction(roles[roleId], roleId, targetAddr, funcSig);
   }
 
-  function allowFunctionWithParameter(
-    uint16 roleId,
+  function scopeFunction(
+    bytes32 roleId,
     address targetAddr,
     bytes4 funcSig,
     bool[] memory isScopeds,
@@ -152,8 +173,8 @@ contract SafeModule is Ownable {
     Comparison[] memory cps,
     bytes[] calldata expectedValues,
     Operation op
-  ) external onlyOwner onlyValidRoleId(roleId) {
-    Permissions.allowFunctionWithParameter(
+  ) external onlyOwner isValidRoleId(roleId) {
+    Permissions.scopeFunction(
       roles[roleId],
       roleId,
       targetAddr,
@@ -183,12 +204,12 @@ contract SafeModule is Ownable {
   ) internal {
     require(
       inputOP == Operation.Send || inputOP == Operation.DelegateCall,
-      "Input invalid operation"
+      "Confused operation"
     );
-    _hasPermission(to, value, data, inputOP);
+    _hasPermission(to, data, inputOP);
 
     require(
-      GnosisSafe(payable(owner())).execTransactionFromModule(
+      GnosisSafe(payable(_safeProxy)).execTransactionFromModule(
         to,
         value,
         data,
@@ -204,23 +225,24 @@ contract SafeModule is Ownable {
 
   function _hasPermission(
     address to,
-    uint256 value,
     bytes memory data,
     Operation inputOP
   ) internal view {
     bool checkAtLeastOnce = false;
-    uint16[] memory validRoles = rolesOf(_msgSender());
+    bytes32[] memory validRoles = rolesOf(_msgSender());
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      uint16 roleId = validRoles[i];
+      bytes32 roleId = validRoles[i];
       if (roleId == 0) {
         continue;
       }
 
-      Permissions.check(roles[roleId], to, value, data, inputOP);
+      Permissions.check(roles[roleId], to, data, inputOP);
       checkAtLeastOnce = true;
     }
 
-    assert(checkAtLeastOnce);
+    if (!checkAtLeastOnce) {
+      revert RoleNotFound();
+    }
   }
 }

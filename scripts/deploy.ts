@@ -12,7 +12,7 @@ async function main(safeProxy: string) {
         Permissions: permissions.address,
       },
     })
-    .then((factory) => factory.deploy(safeProxy))
+    .then((factory) => factory.deploy(safeProxy, safeProxy))
 
   await safeModule.deployed()
 
