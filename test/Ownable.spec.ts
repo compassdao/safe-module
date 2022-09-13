@@ -1,10 +1,19 @@
-import { deploySafeModuleForTest } from "./_deploySafeModule"
+import { safeModuleFixture } from "./fixture/safeModuleFixture"
 import { expect } from "chai"
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
 
 describe("Ownable", () => {
-  it("should set correct owner", async () => {
-    const owner = "0x0000000000000000000000000000000000000002"
-    const contract = await deploySafeModuleForTest(owner)
-    expect(await contract.owner()).to.equal(owner)
+  it("setting owner same as safeProxy", async () => {
+    const { safeProxy, safeModule } = await loadFixture(safeModuleFixture)
+    expect(await safeModule.owner()).to.equal(safeProxy.address)
+  })
+
+  it("setting custom owner", async () => {
+    const owner = "0x0000000000000000000000000000000000000001"
+    const customOwnerSetting = () => safeModuleFixture(owner)
+
+    const { safeProxy, safeModule } = await loadFixture(customOwnerSetting)
+    expect(await safeModule.owner()).to.not.equal(safeProxy.address)
+    expect(await safeModule.owner()).to.equal(owner)
   })
 })

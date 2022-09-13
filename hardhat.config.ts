@@ -1,5 +1,9 @@
 import { HardhatUserConfig } from "hardhat/config"
 import "@nomicfoundation/hardhat-toolbox"
+import "solidity-coverage"
+import "hardhat-deploy"
+import "hardhat-gas-reporter"
+import "hardhat-contract-sizer"
 
 const config: HardhatUserConfig = {
   solidity: {
