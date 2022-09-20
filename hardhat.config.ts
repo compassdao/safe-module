@@ -1,9 +1,23 @@
+import dotenv from "dotenv"
 import { HardhatUserConfig } from "hardhat/config"
 import "@nomicfoundation/hardhat-toolbox"
 import "solidity-coverage"
 import "hardhat-deploy"
 import "hardhat-gas-reporter"
 import "hardhat-contract-sizer"
+import { HttpNetworkUserConfig } from "hardhat/types"
+
+// Load environment variables.
+dotenv.config()
+const { INFURA_KEY, MNEMONIC } = process.env
+const DEFAULT_MNEMONIC =
+  "you pink junior balance struggle among laundry bottom latin merry civil sea"
+
+const sharedNetworkConfig: HttpNetworkUserConfig = {
+  accounts: {
+    mnemonic: MNEMONIC ?? DEFAULT_MNEMONIC,
+  },
+}
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -17,6 +31,24 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 1,
       },
+    },
+  },
+  networks: {
+    mainnet: {
+      ...sharedNetworkConfig,
+      url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,
+    },
+    rinkeby: {
+      ...sharedNetworkConfig,
+      url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
+    },
+    xdai: {
+      ...sharedNetworkConfig,
+      url: "https://rpc.gnosischain.com/",
+    },
+    matic: {
+      ...sharedNetworkConfig,
+      url: "https://rpc-mainnet.maticvigil.com",
     },
   },
 }
