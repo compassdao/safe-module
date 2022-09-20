@@ -64,7 +64,7 @@ describe("PluckParam - Decoding", () => {
           encodeStatic(["bytes4"], ["0x12345678"]),
           encodeDynamic(["string"], ["Hello World!"]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -86,7 +86,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "StaticDynamic")
 
@@ -97,7 +97,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -124,7 +124,7 @@ describe("PluckParam - Decoding", () => {
           encodeDynamic(["bytes"], ["0xabcd"]),
           encodeDynamic32(["uint32[]"], [[1, 2, 3]]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -148,7 +148,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "StaticDynamicDynamic32")
 
@@ -159,7 +159,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -186,7 +186,7 @@ describe("PluckParam - Decoding", () => {
           encodeDynamic32(["bytes4[]"], [["0xabcdef12"]]),
           encodeDynamic(["string"], ["Hello World!"]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -210,7 +210,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "StaticDynamic32Dynamic")
 
@@ -221,7 +221,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -248,7 +248,7 @@ describe("PluckParam - Decoding", () => {
           encodeStatic(["bool"], [false]),
           encodeDynamic32(["bytes2[]"], [["0x1122", "0x3344"]]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -272,7 +272,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "DynamicStaticDynamic32")
 
@@ -283,7 +283,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -310,7 +310,7 @@ describe("PluckParam - Decoding", () => {
           encodeDynamic32(["uint32[]"], [[1975, 2000, 2025]]),
           encodeStatic(["uint256"], [123456789]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -334,7 +334,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "DynamicDynamic32Static")
 
@@ -345,7 +345,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -372,7 +372,7 @@ describe("PluckParam - Decoding", () => {
           encodeStatic(["bytes2"], ["0xaabb"]),
           encodeDynamic(["bytes"], ["0x0123456789abcdef"]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -396,7 +396,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "Dynamic32StaticDynamic")
 
@@ -407,7 +407,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -434,7 +434,7 @@ describe("PluckParam - Decoding", () => {
           encodeDynamic(["string"], ["Hello World!"]),
           encodeStatic(["uint32"], [8976]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -458,7 +458,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "Dynamic32DynamicStatic")
 
@@ -469,7 +469,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -496,7 +496,7 @@ describe("PluckParam - Decoding", () => {
           encodeStatic(["bool"], [false]),
           encodeDynamic(["string"], ["Hello World!"]),
         ],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -518,7 +518,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.emit(testPluckParam, "UnsupportedFixedSizeAndDynamic")
 
@@ -529,7 +529,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
   })
@@ -552,7 +552,7 @@ describe("PluckParam - Decoding", () => {
         [ParameterType.Static],
         [Comparison.Eq],
         [encodeStatic(["bytes4"], ["0x12345678"])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(
@@ -562,7 +562,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           funcSig,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
 
@@ -573,7 +573,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           `${funcSig}aabbccdd`,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
   })
@@ -599,7 +599,7 @@ describe("PluckParam - Decoding", () => {
         [ParameterType.Static, ParameterType.Dynamic],
         [Comparison.Eq, Comparison.Eq],
         ["0x", encodeDynamic(["string"], ["Hello World!"])],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -621,7 +621,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataShort,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
 
@@ -633,7 +633,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           funcSig,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
 
@@ -645,7 +645,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.emit(testPluckParam, "StaticDynamic")
   })
@@ -668,7 +668,7 @@ describe("PluckParam - Decoding", () => {
         [ParameterType.Static, ParameterType.Dynamic],
         [Comparison.Eq, Comparison.Eq],
         ["0x", encodeDynamic(["string"], ["Hello World!"])],
-        Operation.Send
+        Operation.Call
       )
 
     const { data: dataGood } =
@@ -690,7 +690,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataBad,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
 
@@ -702,7 +702,7 @@ describe("PluckParam - Decoding", () => {
           testPluckParam.address,
           0,
           dataGood!,
-          Operation.Send
+          Operation.Call
         )
     ).to.be.emit(testPluckParam, "StaticDynamic")
   })

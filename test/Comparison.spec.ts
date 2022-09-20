@@ -42,7 +42,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
           ["0x", "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.revertedWithCustomError(permissions, "ArraysDifferentLength")
 
@@ -57,7 +57,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq, Comparison.Eq],
           ["0x", "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.revertedWithCustomError(permissions, "ArraysDifferentLength")
 
@@ -72,7 +72,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
           ["0x", "0x", "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.revertedWithCustomError(permissions, "ArraysDifferentLength")
 
@@ -87,7 +87,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.be.not.reverted
   })
@@ -107,7 +107,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Gt],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.be.revertedWithCustomError(permissions, "UnsuitableRelativeComparison")
 
@@ -122,7 +122,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.be.not.reverted
 
@@ -138,7 +138,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Gt, Comparison.Eq],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.be.not.reverted
 
@@ -154,7 +154,7 @@ describe("Comparison", () => {
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Lt, Comparison.Eq],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
-          Operation.Send
+          Operation.Call
         )
     ).to.be.not.reverted
   })
@@ -170,7 +170,7 @@ describe("Comparison", () => {
           testContract.address,
           0,
           (await testContract.populateTransaction.fnWithSingleParam(val)).data!,
-          Operation.Send
+          Operation.Call
         )
 
     const funcSig = testContract.interface.getSighash(
@@ -189,7 +189,7 @@ describe("Comparison", () => {
         [ParameterType.Static],
         [Comparison.Eq],
         [ethers.utils.solidityPack(["uint256"], [123])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke(321)).to.be.revertedWithCustomError(
@@ -211,7 +211,7 @@ describe("Comparison", () => {
           0,
           (await testContract.populateTransaction.fnWithTwoMixedParams(a, s))
             .data!,
-          Operation.Send
+          Operation.Call
         )
 
     const funcSig = testContract.interface.getSighash(
@@ -230,7 +230,7 @@ describe("Comparison", () => {
         [ParameterType.Static, ParameterType.Dynamic],
         [Comparison.Eq, Comparison.Eq],
         ["0x", ethers.utils.solidityPack(["string"], ["Some string"])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke(false, "Some string")).to.be.emit(
@@ -257,7 +257,7 @@ describe("Comparison", () => {
           testContract.address,
           0,
           (await testContract.populateTransaction.dynamic(s)).data!,
-          Operation.Send
+          Operation.Call
         )
 
     const funcSig = testContract.interface.getSighash(
@@ -276,7 +276,7 @@ describe("Comparison", () => {
         [ParameterType.Dynamic],
         [Comparison.Eq],
         ["0x"],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke("0x")).to.be.emit(testContract, "Dynamic")
@@ -298,7 +298,7 @@ describe("Comparison", () => {
           0,
           (await testContract.populateTransaction.dynamicDynamic32(s, extra))
             .data!,
-          Operation.Send
+          Operation.Call
         )
 
     const funcSig = testContract.interface.getSighash(
@@ -317,7 +317,7 @@ describe("Comparison", () => {
         [ParameterType.Dynamic, ParameterType.Dynamic32],
         [Comparison.Eq, Comparison.Eq],
         ["0x", ethers.utils.solidityPack(["bytes2[]"], [["0x1234", "0xabcd"]])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(
@@ -340,7 +340,7 @@ describe("Comparison", () => {
           testContract.address,
           0,
           (await testContract.populateTransaction.dynamic32(extra)).data!,
-          Operation.Send
+          Operation.Call
         )
 
     const funcSig = testContract.interface.getSighash(
@@ -359,7 +359,7 @@ describe("Comparison", () => {
         [ParameterType.Dynamic32],
         [Comparison.Eq],
         [[]],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke([])).to.be.emit(testContract, "Dynamic32")
@@ -380,7 +380,7 @@ describe("Comparison", () => {
           testContract.address,
           0,
           (await testContract.populateTransaction.fnWithSingleParam(val)).data!,
-          Operation.Send
+          Operation.Call
         )
 
     const funcSig = testContract.interface.getSighash(
@@ -399,7 +399,7 @@ describe("Comparison", () => {
         [ParameterType.Static],
         [Comparison.Eq],
         [ethers.utils.solidityPack(["uint256"], [213])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke(321)).to.be.revertedWithCustomError(
@@ -423,7 +423,7 @@ describe("Comparison", () => {
         [ParameterType.Static],
         [Comparison.Gt],
         [ethers.utils.solidityPack(["uint256"], [213])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke(321)).to.be.emit(testContract, "FnWithSingleParam")
@@ -447,7 +447,7 @@ describe("Comparison", () => {
         [ParameterType.Static],
         [Comparison.Lt],
         [ethers.utils.solidityPack(["uint256"], [213])],
-        Operation.Send
+        Operation.Call
       )
 
     await expect(invoke(321)).to.be.revertedWithCustomError(

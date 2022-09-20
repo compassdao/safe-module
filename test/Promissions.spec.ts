@@ -40,7 +40,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
     })
@@ -56,7 +56,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(safeModule, "RoleNotFound")
     })
@@ -72,7 +72,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             "0x000000",
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "FunctionSignatureTooShort")
     })
@@ -119,7 +119,7 @@ describe("Permissions", () => {
       // allow to send
       await safeModule
         .connect(owner)
-        .allowContract(ROLE_ID, testContract.address, Operation.Send)
+        .allowContract(ROLE_ID, testContract.address, Operation.Call)
 
       await expect(
         safeModule
@@ -128,7 +128,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -143,7 +143,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
     })
@@ -170,7 +170,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
 
@@ -188,7 +188,7 @@ describe("Permissions", () => {
       // allow to send
       await safeModule
         .connect(owner)
-        .allowContract(ROLE_ID, testContract.address, Operation.Send)
+        .allowContract(ROLE_ID, testContract.address, Operation.Call)
 
       await expect(
         safeModule
@@ -197,7 +197,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -224,7 +224,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
 
@@ -251,7 +251,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -279,7 +279,7 @@ describe("Permissions", () => {
 
       await safeModule
         .connect(owner)
-        .allowContract(ROLE_ID, testContract.address, Operation.Send)
+        .allowContract(ROLE_ID, testContract.address, Operation.Call)
 
       await expect(
         safeModule
@@ -288,7 +288,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -301,7 +301,7 @@ describe("Permissions", () => {
             anotherTestContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
     })
@@ -328,7 +328,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doNothingData,
-          Operation.Send
+          Operation.Call
         )
 
       await expect(
@@ -338,7 +338,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -351,7 +351,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
 
@@ -367,7 +367,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.revertedWithCustomError(permissions, "FunctionNotAllowed")
 
@@ -382,7 +382,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
     })
@@ -407,7 +407,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doNothingData,
-          Operation.Send
+          Operation.Call
         )
 
       await expect(
@@ -417,7 +417,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -429,7 +429,7 @@ describe("Permissions", () => {
             anotherTestContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
     })
@@ -447,7 +447,7 @@ describe("Permissions", () => {
       // allow contract
       await safeModule
         .connect(owner)
-        .allowContract(ROLE_ID, testContract.address, Operation.Send)
+        .allowContract(ROLE_ID, testContract.address, Operation.Call)
 
       await expect(
         safeModule
@@ -456,7 +456,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -469,7 +469,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoEvenLess")
 
@@ -483,7 +483,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doNothingData,
-          Operation.Send
+          Operation.Call
         )
 
       await expect(
@@ -493,7 +493,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -504,7 +504,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
     })
@@ -529,7 +529,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doNothingData,
-          Operation.Send
+          Operation.Call
         )
 
       await expect(
@@ -539,7 +539,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -552,14 +552,14 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
 
       // allow contract
       await safeModule
         .connect(owner)
-        .allowContract(ROLE_ID, testContract.address, Operation.Send)
+        .allowContract(ROLE_ID, testContract.address, Operation.Call)
 
       await expect(
         safeModule
@@ -568,7 +568,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -579,7 +579,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoEvenLess")
     })
@@ -605,7 +605,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doNothingData,
-          Operation.Send
+          Operation.Call
         )
       await safeModule
         .connect(owner)
@@ -613,7 +613,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doEvenLessData,
-          Operation.Send
+          Operation.Call
         )
 
       await expect(
@@ -623,7 +623,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -634,7 +634,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoEvenLess")
 
@@ -650,7 +650,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -661,7 +661,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doEvenLessData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
     })
@@ -686,7 +686,7 @@ describe("Permissions", () => {
           ROLE_ID,
           testContract.address,
           doNothingData,
-          Operation.Send
+          Operation.Call
         )
 
       await expect(
@@ -696,7 +696,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -728,7 +728,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
 
@@ -760,7 +760,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.emit(testContract, "DoNothing")
 
@@ -792,7 +792,7 @@ describe("Permissions", () => {
             testContract.address,
             0,
             doNothingData,
-            Operation.Send
+            Operation.Call
           )
       ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
 

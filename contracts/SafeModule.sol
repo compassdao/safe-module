@@ -203,7 +203,7 @@ contract SafeModule is Ownable {
     Operation inputOP
   ) internal {
     require(
-      inputOP == Operation.Send || inputOP == Operation.DelegateCall,
+      inputOP == Operation.Call || inputOP == Operation.DelegateCall,
       "Confused operation"
     );
     _hasPermission(to, data, inputOP);

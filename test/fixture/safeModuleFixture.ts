@@ -28,7 +28,7 @@ export const safeModuleFixture = async (owner?: string) => {
 
 export enum Operation {
   None,
-  Send,
+  Call,
   DelegateCall,
   Both,
 }

@@ -21,7 +21,7 @@ enum Scope {
 
 enum Operation {
   None,
-  Send,
+  Call,
   DelegateCall,
   Both
 }
@@ -206,10 +206,10 @@ library Permissions {
 
   function _checkOP(Operation inputOP, Operation scopedOP) internal pure {
     if (
-      ((scopedOP == Operation.Send || scopedOP == Operation.DelegateCall) &&
+      ((scopedOP == Operation.Call || scopedOP == Operation.DelegateCall) &&
         inputOP == scopedOP) ||
       (scopedOP == Operation.Both &&
-        (inputOP == Operation.Send || inputOP == Operation.DelegateCall))
+        (inputOP == Operation.Call || inputOP == Operation.DelegateCall))
     ) {
       return;
     }
