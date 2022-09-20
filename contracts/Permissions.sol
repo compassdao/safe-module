@@ -40,15 +40,19 @@ struct Role {
 library Permissions {
   uint256 internal constant _SCOPE_MAX_PARAMS = 48;
 
-  event AllowContract(bytes32 role, address targetAddress, Operation operation);
+  event AllowContract(
+    bytes32 role,
+    address targetContract,
+    Operation operation
+  );
 
-  event RevokeContract(bytes32 role, address targetAddress);
+  event RevokeContract(bytes32 role, address targetContract);
 
-  event ScopeContract(bytes32 role, address targetAddress);
+  event ScopeContract(bytes32 role, address targetContract);
 
   event AllowFunction(
     bytes32 roleId,
-    address targetAddress,
+    address targetContract,
     bytes4 functionSig,
     Operation operation,
     uint256 funcScopedFlag
@@ -56,14 +60,14 @@ library Permissions {
 
   event RevokeFunction(
     bytes32 roleId,
-    address targetAddress,
+    address targetContract,
     bytes4 functionSig,
     uint256 funcScopedFlag
   );
 
   event ScopeFunction(
     bytes32 roleId,
-    address targetAddress,
+    address targetContract,
     bytes4 functionSig,
     bool[] isScopeds,
     ParameterType[] paramTypes,
@@ -123,7 +127,7 @@ library Permissions {
 
   function _checkTransaction(
     Role storage role,
-    address targetAddr,
+    address targetContract,
     bytes memory data,
     Operation inputOP
   ) internal view {
@@ -131,13 +135,13 @@ library Permissions {
       revert FunctionSignatureTooShort();
     }
 
-    ScopedContract storage scopedContract = role.contracts[targetAddr];
+    ScopedContract storage scopedContract = role.contracts[targetContract];
     if (scopedContract.scope == Scope.Contract) {
       _checkOP(inputOP, scopedContract.op);
       return;
     } else if (scopedContract.scope == Scope.Function) {
       uint256 funcScopedFlag = role.functions[
-        _key4Func(targetAddr, bytes4(data))
+        _key4Func(targetContract, bytes4(data))
       ];
 
       if (funcScopedFlag == 0) {
@@ -149,7 +153,7 @@ library Permissions {
       _checkOP(inputOP, scopedFuncOP);
 
       if (isBypass != true) {
-        _checkParameters(role, funcScopedFlag, targetAddr, data);
+        _checkParameters(role, funcScopedFlag, targetContract, data);
       }
 
       return;
@@ -161,7 +165,7 @@ library Permissions {
   function _checkParameters(
     Role storage role,
     uint256 funcScopedFlag,
-    address targetAddr,
+    address targetContract,
     bytes memory data
   ) internal view {
     bytes4 funcSig = bytes4(data);
@@ -184,7 +188,7 @@ library Permissions {
         inputValue = _pluckStaticValue(data, i);
       }
 
-      bytes32 key = _key4FuncArg(targetAddr, funcSig, i);
+      bytes32 key = _key4FuncArg(targetContract, funcSig, i);
       _compare(cp, role.expectedValues[key], inputValue);
     }
   }
@@ -340,58 +344,61 @@ library Permissions {
   function allowContract(
     Role storage role,
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     Operation op
   ) external {
-    role.contracts[targetAddr] = ScopedContract(Scope.Contract, op);
-    emit AllowContract(roleId, targetAddr, op);
+    role.contracts[targetContract] = ScopedContract(Scope.Contract, op);
+    emit AllowContract(roleId, targetContract, op);
   }
 
   function revokeContract(
     Role storage role,
     bytes32 roleId,
-    address targetAddr
+    address targetContract
   ) external {
-    role.contracts[targetAddr] = ScopedContract(Scope.None, Operation.None);
-    emit RevokeContract(roleId, targetAddr);
+    role.contracts[targetContract] = ScopedContract(Scope.None, Operation.None);
+    emit RevokeContract(roleId, targetContract);
   }
 
   function scopeContract(
     Role storage role,
     bytes32 roleId,
-    address targetAddr
+    address targetContract
   ) external {
-    role.contracts[targetAddr] = ScopedContract(Scope.Function, Operation.None);
-    emit ScopeContract(roleId, targetAddr);
+    role.contracts[targetContract] = ScopedContract(
+      Scope.Function,
+      Operation.None
+    );
+    emit ScopeContract(roleId, targetContract);
   }
 
   function allowFunction(
     Role storage role,
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     bytes4 funcSig,
     Operation op
   ) external {
     uint256 funcScopedFlag = _packLeft(0, op, true, 0);
-    role.functions[_key4Func(targetAddr, funcSig)] = funcScopedFlag;
+    role.functions[_key4Func(targetContract, funcSig)] = funcScopedFlag;
 
-    emit AllowFunction(roleId, targetAddr, funcSig, op, funcScopedFlag);
+    emit AllowFunction(roleId, targetContract, funcSig, op, funcScopedFlag);
   }
 
   function revokeFunction(
     Role storage role,
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     bytes4 funcSig
   ) external {
-    role.functions[_key4Func(targetAddr, funcSig)] = 0;
-    emit RevokeFunction(roleId, targetAddr, funcSig, 0);
+    role.functions[_key4Func(targetContract, funcSig)] = 0;
+    emit RevokeFunction(roleId, targetContract, funcSig, 0);
   }
 
   function scopeFunction(
     Role storage role,
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     bytes4 funcSig,
     bool[] memory isScopeds,
     ParameterType[] memory paramTypes,
@@ -430,17 +437,17 @@ library Permissions {
       );
     }
 
-    role.functions[_key4Func(targetAddr, funcSig)] = funcScopedFlag;
+    role.functions[_key4Func(targetContract, funcSig)] = funcScopedFlag;
 
     for (uint256 i = 0; i < argsCount; ++i) {
       role.expectedValues[
-        _key4FuncArg(targetAddr, funcSig, i)
+        _key4FuncArg(targetContract, funcSig, i)
       ] = _compressExpectedValue(paramTypes[i], expectedValues[i]);
     }
 
     emit ScopeFunction(
       roleId,
-      targetAddr,
+      targetContract,
       funcSig,
       isScopeds,
       paramTypes,

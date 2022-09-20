@@ -47,6 +47,10 @@ contract SafeModule is Ownable {
     _;
   }
 
+  /// @dev Assign a role to a member
+  /// @param member Assigned address
+  /// @param roleId Id of a role
+  /// @notice Can only be called by owner
   function assignRole(address member, bytes32 roleId)
     external
     onlyOwner
@@ -69,6 +73,10 @@ contract SafeModule is Ownable {
     emit AssignRoleToMember(member, roleId);
   }
 
+  /// @dev Revoke a role from a member
+  /// @param member Assigned address before
+  /// @param roleId Id of a role
+  /// @notice Can only be called by owner
   function revokeRole(address member, bytes32 roleId)
     external
     onlyOwner
@@ -88,6 +96,9 @@ contract SafeModule is Ownable {
     }
   }
 
+  /// @dev Deprecate a roleId and this roleId can't used anymore
+  /// @param roleId Id of a role
+  /// @notice Can only be called by owner
   function deprecateRole(bytes32 roleId)
     external
     onlyOwner
@@ -97,6 +108,9 @@ contract SafeModule is Ownable {
     emit DeprecateRole(roleId);
   }
 
+  /// @dev Delete a member
+  /// @param member Address to be deleted
+  /// @notice Can only be called by owner
   function dropMember(address member) external onlyOwner {
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
       members[member][i] = 0;
@@ -105,6 +119,8 @@ contract SafeModule is Ownable {
     emit DropMember(member);
   }
 
+  /// @dev Get roles of an address for now
+  /// @param member Member address
   function rolesOf(address member)
     public
     view
@@ -123,50 +139,92 @@ contract SafeModule is Ownable {
     }
   }
 
+  /// @dev Allow the specific roleId to call the contract
+  /// @param roleId Id of a role
+  /// @param targetContract Allowed contract
+  /// @param op Defines the operation is call or delegateCall
+  /// @notice Can only be called by owner
   function allowContract(
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     Operation op
   ) external onlyOwner isValidRoleId(roleId) {
-    Permissions.allowContract(roles[roleId], roleId, targetAddr, op);
+    Permissions.allowContract(roles[roleId], roleId, targetContract, op);
   }
 
-  function revokeContract(bytes32 roleId, address targetAddr)
+  /// @dev Disable the specific roleId to call the contract
+  /// @param roleId Id of a role
+  /// @param targetContract Allowed contract
+  /// @notice Can only be called by owner
+  function revokeContract(bytes32 roleId, address targetContract)
     external
     onlyOwner
     isValidRoleId(roleId)
   {
-    Permissions.revokeContract(roles[roleId], roleId, targetAddr);
+    Permissions.revokeContract(roles[roleId], roleId, targetContract);
   }
 
-  function scopeContract(bytes32 roleId, address targetAddr)
+  /// @dev Allow the specific roleId to call the function of contract
+  /// @param roleId Id of a role
+  /// @param targetContract Allowed contract
+  /// @notice Can only be called by owner
+  function scopeContract(bytes32 roleId, address targetContract)
     external
     onlyOwner
     isValidRoleId(roleId)
   {
-    Permissions.scopeContract(roles[roleId], roleId, targetAddr);
+    Permissions.scopeContract(roles[roleId], roleId, targetContract);
   }
 
+  /// @dev Allow the specific roleId to call the function
+  /// @param roleId Id of a role
+  /// @param targetContract Allowed contract
+  /// @param funcSig Function selector
+  /// @param op Defines the operation is call or delegateCall
+  /// @notice Can only be called by owner
+  /// @notice Please call 'scopeContract' at the begin before config function
   function allowFunction(
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     bytes4 funcSig,
     Operation op
   ) external onlyOwner isValidRoleId(roleId) {
-    Permissions.allowFunction(roles[roleId], roleId, targetAddr, funcSig, op);
+    Permissions.allowFunction(
+      roles[roleId],
+      roleId,
+      targetContract,
+      funcSig,
+      op
+    );
   }
 
+  /// @dev Disable the specific roleId to call the function
+  /// @param roleId Id of a role
+  /// @param targetContract Allowed contract
+  /// @param funcSig Function selector
+  /// @notice Can only be called by owner
   function revokeFunction(
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     bytes4 funcSig
   ) external onlyOwner isValidRoleId(roleId) {
-    Permissions.revokeFunction(roles[roleId], roleId, targetAddr, funcSig);
+    Permissions.revokeFunction(roles[roleId], roleId, targetContract, funcSig);
   }
 
+  /// @dev Allow the specific roleId to call the function with specific parameters
+  /// @param roleId Id of a role
+  /// @param targetContract Allowed contract
+  /// @param funcSig Function selector
+  /// @param isScopeds List of parameter scoped config, false for un-scoped, true for scoped
+  /// @param paramTypes List of parameter types, Static, Dynamic or Dynamic32, use Static type if not scoped
+  /// @param cps List of parameter comparison types, Eq, Gt or Lt, use Eq if not scoped
+  /// @param expectedValues List of expected values, use '0x' if not scoped
+  /// @param op Defines the operation is call or delegateCall
+  /// @notice Can only be called by owner
+  /// @notice Please call 'scopeContract' at the begin before config function
   function scopeFunction(
     bytes32 roleId,
-    address targetAddr,
+    address targetContract,
     bytes4 funcSig,
     bool[] memory isScopeds,
     ParameterType[] memory paramTypes,
@@ -177,7 +235,7 @@ contract SafeModule is Ownable {
     Permissions.scopeFunction(
       roles[roleId],
       roleId,
-      targetAddr,
+      targetContract,
       funcSig,
       isScopeds,
       paramTypes,
@@ -187,6 +245,11 @@ contract SafeModule is Ownable {
     );
   }
 
+  /// @dev Check then exec transaction
+  /// @param to To address of the transaction
+  /// @param value Ether value of the transaction
+  /// @param data Data payload of the transaction
+  /// @param inputOP Operation to execute the transaction, only call or delegateCall
   function execTransactionFromModule(
     address to,
     uint256 value,
