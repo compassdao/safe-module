@@ -44,3 +44,19 @@ export enum Comparison {
   Gt,
   Lt,
 }
+
+export enum PermitSettledResult {
+  Unknown,
+  Fulfilled,
+  ContractScopeRejected,
+  FunctionScopeRejected,
+  ParametersScopeRejected,
+  OperationRejected,
+}
+
+export const padPermitSettledResult = (...results: PermitSettledResult[]) => {
+  return [...results, ...new Array(16).fill(PermitSettledResult.Unknown)].slice(
+    0,
+    16
+  )
+}

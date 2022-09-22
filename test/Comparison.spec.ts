@@ -2,7 +2,9 @@ import { ethers } from "hardhat"
 import {
   Comparison,
   Operation,
+  padPermitSettledResult,
   ParameterType,
+  PermitSettledResult,
   safeModuleFixture,
 } from "./fixture/safeModuleFixture"
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
@@ -160,8 +162,7 @@ describe("Comparison", () => {
   })
 
   it("passes an eq comparison", async () => {
-    const { safeModule, testContract, owner, permissions, other } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareDeployment()
 
     const invoke = async (val: number) =>
       safeModule
@@ -192,16 +193,16 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke(321)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotEqualToExpected"
-    )
+    await expect(invoke(321))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
     await expect(invoke(123)).to.be.emit(testContract, "FnWithSingleParam")
   })
 
   it('"passes an eq comparison for dynamic"', async () => {
-    const { safeModule, testContract, owner, permissions, other } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareDeployment()
 
     const invoke = async (a: boolean, s: string) =>
       safeModule
@@ -241,14 +242,15 @@ describe("Comparison", () => {
       testContract,
       "FnWithTwoMixedParams"
     )
-    await expect(
-      invoke(false, "Some other string")
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    await expect(invoke(false, "Some other string"))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("passes an eq comparison for dynamic - empty buffer", async () => {
-    const { safeModule, testContract, owner, permissions, other } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareDeployment()
 
     const invoke = async (s: string) =>
       safeModule
@@ -280,15 +282,15 @@ describe("Comparison", () => {
       )
 
     await expect(invoke("0x")).to.be.emit(testContract, "Dynamic")
-    await expect(invoke("0x12")).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotEqualToExpected"
-    )
+    await expect(invoke("0x12"))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("passes an eq comparison for dynamic32", async () => {
-    const { safeModule, testContract, owner, permissions, other } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareDeployment()
 
     const invoke = async (s: string, extra: any[]) =>
       safeModule
@@ -320,9 +322,11 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(
-      invoke("Doesn't matter", ["0x0234", "0xabcd"])
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    await expect(invoke("Doesn't matter", ["0x0234", "0xabcd"]))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
     await expect(invoke("Doesn't matter", ["0x1234", "0xabcd"])).to.be.emit(
       testContract,
       "DynamicDynamic32"
@@ -330,8 +334,7 @@ describe("Comparison", () => {
   })
 
   it("passes an eq comparison for dynamic32 - empty array", async () => {
-    const { safeModule, testContract, owner, permissions, other } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareDeployment()
 
     const invoke = async (extra: any[]) =>
       safeModule
@@ -363,15 +366,15 @@ describe("Comparison", () => {
       )
 
     await expect(invoke([])).to.be.emit(testContract, "Dynamic32")
-    await expect(invoke(["0xaabbccddeeff0011"])).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotEqualToExpected"
-    )
+    await expect(invoke(["0xaabbccddeeff0011"]))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("re-scopes all comparison", async () => {
-    const { safeModule, testContract, owner, permissions, other } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareDeployment()
 
     const invoke = async (val: number) =>
       safeModule
@@ -402,14 +405,18 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke(321)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotEqualToExpected"
-    )
-    await expect(invoke(123)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotEqualToExpected"
-    )
+    await expect(invoke(321))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
+
+    await expect(invoke(123))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
+
     await expect(invoke(213)).to.be.emit(testContract, "FnWithSingleParam")
 
     // re-scope to 'gt'
@@ -427,14 +434,17 @@ describe("Comparison", () => {
       )
 
     await expect(invoke(321)).to.be.emit(testContract, "FnWithSingleParam")
-    await expect(invoke(123)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotGreaterThanExpected"
-    )
-    await expect(invoke(213)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotGreaterThanExpected"
-    )
+    await expect(invoke(123))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
+
+    await expect(invoke(213))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
 
     // re-scope to 'lt'
     await safeModule
@@ -450,14 +460,17 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke(321)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotLessThanExpected"
-    )
+    await expect(invoke(321))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
+
     await expect(invoke(123)).to.be.emit(testContract, "FnWithSingleParam")
-    await expect(invoke(213)).to.be.revertedWithCustomError(
-      permissions,
-      "ParameterNotLessThanExpected"
-    )
+    await expect(invoke(213))
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 })

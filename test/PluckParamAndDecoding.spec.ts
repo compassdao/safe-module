@@ -2,7 +2,9 @@ import { ethers } from "hardhat"
 import {
   Comparison,
   Operation,
+  padPermitSettledResult,
   ParameterType,
+  PermitSettledResult,
   safeModuleFixture,
 } from "./fixture/safeModuleFixture"
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
@@ -44,7 +46,7 @@ const encodeDynamic32 = (types: any[], values: any[]) => {
 
 describe("PluckParam - Decoding", () => {
   it("static, dynamic - (bytes4, string)", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -99,11 +101,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("static, dynamic, dynamic32 - (address,bytes,uint32[])", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -161,11 +167,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("static, dynamic32, dynamic - (uint32,bytes4[],string)", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -223,11 +233,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("dynamic, static, dynamic32 - (bytes,bool,bytes2[])", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -285,11 +299,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("dynamic, dynamic32, static - (string,uint32[],uint256)", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -347,11 +365,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("dynamic32, static, dynamic - (address[],bytes2,bytes)", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -409,11 +431,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("dynamic32, dynamic, static - (bytes2[],string,uint32)", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -471,11 +497,15 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("warning! don't try this at home", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
+    const { safeModule, testPluckParam, owner, other } =
       await prepareDeployment()
 
     const funcSig = testPluckParam.interface.getSighash(
@@ -531,7 +561,11 @@ describe("PluckParam - Decoding", () => {
           dataBad!,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "ParameterNotEqualToExpected")
+    )
+      .to.be.revertedWithCustomError(safeModule, "PermitReject")
+      .withArgs(
+        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
+      )
   })
 
   it("static - fails if calldata is too short", async () => {

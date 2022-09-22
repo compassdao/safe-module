@@ -1,5 +1,10 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
-import { Operation, safeModuleFixture } from "./fixture/safeModuleFixture"
+import {
+  Operation,
+  padPermitSettledResult,
+  PermitSettledResult,
+  safeModuleFixture,
+} from "./fixture/safeModuleFixture"
 import { ethers } from "hardhat"
 import { expect } from "chai"
 
@@ -30,7 +35,7 @@ const newTestContract = () =>
 describe("Permissions", () => {
   describe("Mix", () => {
     it("should revert only assign role without contract config on role", async () => {
-      const { safeModule, permissions, testContract, doNothingData, other } =
+      const { safeModule, testContract, doNothingData, other } =
         await prepareDeployment()
 
       await expect(
@@ -42,7 +47,11 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.ContractScopeRejected)
+        )
     })
 
     it("role not found", async () => {
@@ -58,12 +67,18 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(safeModule, "RoleNotFound")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult())
     })
 
     it("function signature too short", async () => {
-      const { safeModule, testContract, permissions, other } =
+      const { safeModule, testContract, permissions, owner, other } =
         await prepareDeployment()
+
+      await safeModule
+        .connect(owner)
+        .scopeContract(ROLE_ID, testContract.address)
 
       await expect(
         safeModule
@@ -109,7 +124,7 @@ describe("Permissions", () => {
     it("allows and then disallows a contract", async () => {
       const {
         safeModule,
-        permissions,
+
         testContract,
         doNothingData,
         owner,
@@ -145,13 +160,17 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.ContractScopeRejected)
+        )
     })
 
     it("allow contract with different operation", async () => {
       const {
         safeModule,
-        permissions,
+
         testContract,
         doNothingData,
         owner,
@@ -172,7 +191,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       await expect(
         safeModule
@@ -183,7 +204,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.DelegateCall
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       // allow to send
       await safeModule
@@ -210,7 +233,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.DelegateCall
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       // allow to delegateCall
       await safeModule
@@ -226,7 +251,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       await expect(
         safeModule
@@ -270,7 +297,7 @@ describe("Permissions", () => {
     it("allowing a contract but not allow other contract", async () => {
       const {
         safeModule,
-        permissions,
+
         testContract,
         doNothingData,
         owner,
@@ -303,7 +330,11 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.ContractScopeRejected)
+        )
     })
   })
 
@@ -312,7 +343,7 @@ describe("Permissions", () => {
       const {
         safeModule,
         testContract,
-        permissions,
+
         doNothingData,
         owner,
         other,
@@ -353,7 +384,11 @@ describe("Permissions", () => {
             doEvenLessData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.FunctionScopeRejected)
+        )
 
       // revoke function
       await safeModule
@@ -369,7 +404,11 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.revertedWithCustomError(permissions, "FunctionNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.FunctionScopeRejected)
+        )
 
       // revoke contract
       await safeModule
@@ -384,14 +423,18 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.ContractScopeRejected)
+        )
     })
 
     it("allowing function on a target does not allow same function on diff target", async () => {
       const {
         safeModule,
         testContract,
-        permissions,
+
         doNothingData,
         owner,
         other,
@@ -431,14 +474,18 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "TargetAddressNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.ContractScopeRejected)
+        )
     })
 
     it("allowing a function tightens a previously allowed target", async () => {
       const {
         safeModule,
         testContract,
-        permissions,
+
         doNothingData,
         owner,
         other,
@@ -506,18 +553,16 @@ describe("Permissions", () => {
             doEvenLessData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.FunctionScopeRejected)
+        )
     })
 
     it("allowing a target loosens a previously allowed function", async () => {
-      const {
-        safeModule,
-        testContract,
-        permissions,
-        doNothingData,
-        owner,
-        other,
-      } = await prepareDeployment()
+      const { safeModule, testContract, doNothingData, owner, other } =
+        await prepareDeployment()
 
       // scope contract and only allow doNothing
       await safeModule
@@ -554,7 +599,11 @@ describe("Permissions", () => {
             doEvenLessData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.FunctionScopeRejected)
+        )
 
       // allow contract
       await safeModule
@@ -588,7 +637,7 @@ describe("Permissions", () => {
       const {
         safeModule,
         testContract,
-        permissions,
+
         doNothingData,
         owner,
         other,
@@ -663,18 +712,16 @@ describe("Permissions", () => {
             doEvenLessData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "FunctionNotAllowed")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(
+          padPermitSettledResult(PermitSettledResult.FunctionScopeRejected)
+        )
     })
 
     it("allow function with different operation", async () => {
-      const {
-        safeModule,
-        testContract,
-        permissions,
-        doNothingData,
-        owner,
-        other,
-      } = await prepareDeployment()
+      const { safeModule, testContract, doNothingData, owner, other } =
+        await prepareDeployment()
 
       // scope contract then allow doNothing with send operation
       await safeModule
@@ -709,7 +756,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.DelegateCall
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       // allow doNothing with delegateCall operation
       await safeModule
@@ -730,7 +779,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       await expect(
         safeModule
@@ -794,7 +845,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.Call
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
 
       await expect(
         safeModule
@@ -805,7 +858,9 @@ describe("Permissions", () => {
             doNothingData,
             Operation.DelegateCall
           )
-      ).to.be.revertedWithCustomError(permissions, "OperationNotAllow")
+      )
+        .to.be.revertedWithCustomError(safeModule, "PermitReject")
+        .withArgs(padPermitSettledResult(PermitSettledResult.OperationRejected))
     })
   })
 })
