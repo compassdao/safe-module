@@ -1,30 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.6;
-
-enum ParameterType {
-  Static,
-  Dynamic,
-  Dynamic32
-}
-
-enum Comparison {
-  Eq,
-  Gt,
-  Lt
-}
-
-enum Scope {
-  None,
-  Contract,
-  Function
-}
-
-enum Operation {
-  None,
-  Call,
-  DelegateCall,
-  Both
-}
+import "./Enums.sol";
 
 struct ScopedContract {
   Scope scope;
@@ -80,24 +56,6 @@ library Permissions {
   /// Function signature too short
   error FunctionSignatureTooShort();
 
-  /// Role not allowed to call target address
-  error TargetAddressNotAllowed();
-
-  /// Role not allowed to call this function on target address
-  error FunctionNotAllowed();
-
-  /// operation is not allow
-  error OperationNotAllow();
-
-  /// Input parameter is not equal to expected
-  error ParameterNotEqualToExpected();
-
-  /// Input parameter is not less than expected
-  error ParameterNotLessThanExpected();
-
-  /// Input parameter is not greater than expected
-  error ParameterNotGreaterThanExpected();
-
   /// The provided calldata for execution is too short, or an OutOfBounds scoped parameter was configured
   error CalldataOutOfBounds();
 
@@ -121,8 +79,8 @@ library Permissions {
     address to,
     bytes calldata data,
     Operation inputOP
-  ) public view {
-    _checkTransaction(role, to, data, inputOP);
+  ) public view returns (PermitSettledResult) {
+    return _checkTransaction(role, to, data, inputOP);
   }
 
   function _checkTransaction(
@@ -130,36 +88,41 @@ library Permissions {
     address targetContract,
     bytes memory data,
     Operation inputOP
-  ) internal view {
+  ) internal view returns (PermitSettledResult) {
     if (data.length < 4) {
       revert FunctionSignatureTooShort();
     }
 
     ScopedContract storage scopedContract = role.contracts[targetContract];
     if (scopedContract.scope == Scope.Contract) {
-      _checkOP(inputOP, scopedContract.op);
-      return;
+      return
+        _checkOP(inputOP, scopedContract.op)
+          ? PermitSettledResult.Fulfilled
+          : PermitSettledResult.OperationRejected;
     } else if (scopedContract.scope == Scope.Function) {
       uint256 funcScopedFlag = role.functions[
         _key4Func(targetContract, bytes4(data))
       ];
 
       if (funcScopedFlag == 0) {
-        revert FunctionNotAllowed();
+        return PermitSettledResult.FunctionScopeRejected;
       }
 
       (Operation scopedFuncOP, bool isBypass, ) = _unpackLeft(funcScopedFlag);
 
-      _checkOP(inputOP, scopedFuncOP);
-
-      if (isBypass != true) {
-        _checkParameters(role, funcScopedFlag, targetContract, data);
+      if (!_checkOP(inputOP, scopedFuncOP)) {
+        return PermitSettledResult.OperationRejected;
+      } else if (isBypass) {
+        return PermitSettledResult.Fulfilled;
       }
 
-      return;
+      return
+        _checkParameters(role, funcScopedFlag, targetContract, data)
+          ? PermitSettledResult.Fulfilled
+          : PermitSettledResult.ParametersScopeRejected;
     }
 
-    revert TargetAddressNotAllowed();
+    return PermitSettledResult.ContractScopeRejected;
   }
 
   function _checkParameters(
@@ -167,7 +130,9 @@ library Permissions {
     uint256 funcScopedFlag,
     address targetContract,
     bytes memory data
-  ) internal view {
+  ) internal view returns (bool permitted) {
+    permitted = false;
+
     bytes4 funcSig = bytes4(data);
     (, , uint256 argsCount) = _unpackLeft(funcScopedFlag);
 
@@ -189,7 +154,11 @@ library Permissions {
       }
 
       bytes32 key = _key4FuncArg(targetContract, funcSig, i);
-      _compare(cp, role.expectedValues[key], inputValue);
+      permitted = _compare(cp, role.expectedValues[key], inputValue);
+
+      if (!permitted) {
+        break;
+      }
     }
   }
 
@@ -197,28 +166,33 @@ library Permissions {
     Comparison cp,
     bytes32 expectedValue,
     bytes32 inputValue
-  ) internal pure {
-    if (cp == Comparison.Eq && inputValue != expectedValue) {
-      revert ParameterNotEqualToExpected();
-    } else if (cp == Comparison.Gt && inputValue <= expectedValue) {
-      // todo should convert to int or uint ?
-      revert ParameterNotGreaterThanExpected();
-    } else if (cp == Comparison.Lt && inputValue >= expectedValue) {
-      revert ParameterNotLessThanExpected();
+  ) internal pure returns (bool) {
+    if (
+      (cp == Comparison.Eq && inputValue == expectedValue) ||
+      (cp == Comparison.Gt && inputValue > expectedValue) ||
+      (cp == Comparison.Lt && inputValue < expectedValue)
+    ) {
+      return true;
     }
+
+    return false;
   }
 
-  function _checkOP(Operation inputOP, Operation scopedOP) internal pure {
+  function _checkOP(Operation inputOP, Operation scopedOP)
+    internal
+    pure
+    returns (bool)
+  {
     if (
       ((scopedOP == Operation.Call || scopedOP == Operation.DelegateCall) &&
         inputOP == scopedOP) ||
       (scopedOP == Operation.Both &&
         (inputOP == Operation.Call || inputOP == Operation.DelegateCall))
     ) {
-      return;
+      return true;
     }
 
-    revert OperationNotAllow();
+    return false;
   }
 
   function _key4Func(address addr, bytes4 funcSig)

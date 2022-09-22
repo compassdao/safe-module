@@ -3,6 +3,7 @@ pragma solidity 0.8.6;
 
 import "./Ownable.sol";
 import "./GnosisSafe.sol";
+import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
@@ -21,7 +22,7 @@ contract SafeModule is Ownable {
   }
 
   error RoleExceeded();
-  error RoleNotFound();
+  error PermitReject(PermitSettledResult[] reason);
   error BlankRoleId();
   error RoleDeprecated();
 
@@ -269,7 +270,7 @@ contract SafeModule is Ownable {
       inputOP == Operation.Call || inputOP == Operation.DelegateCall,
       "Confused operation"
     );
-    _hasPermission(to, data, inputOP);
+    _checkPermission(to, data, inputOP);
 
     require(
       GnosisSafe(payable(_safeProxy)).execTransactionFromModule(
@@ -286,13 +287,15 @@ contract SafeModule is Ownable {
     emit ExecTransaction(to, value, data, inputOP, _msgSender());
   }
 
-  function _hasPermission(
+  function _checkPermission(
     address to,
     bytes memory data,
     Operation inputOP
   ) internal view {
-    bool checkAtLeastOnce = false;
     bytes32[] memory validRoles = rolesOf(_msgSender());
+    PermitSettledResult[] memory results = new PermitSettledResult[](
+      _MAX_ROLE_PER_MEMBER
+    );
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
       bytes32 roleId = validRoles[i];
@@ -300,12 +303,12 @@ contract SafeModule is Ownable {
         continue;
       }
 
-      Permissions.check(roles[roleId], to, data, inputOP);
-      checkAtLeastOnce = true;
+      results[i] = Permissions.check(roles[roleId], to, data, inputOP);
+      if (results[i] == PermitSettledResult.Fulfilled) {
+        return;
+      }
     }
 
-    if (!checkAtLeastOnce) {
-      revert RoleNotFound();
-    }
+    revert PermitReject(results);
   }
 }
