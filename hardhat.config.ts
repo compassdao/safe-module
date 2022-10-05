@@ -5,6 +5,7 @@ import "solidity-coverage"
 import "hardhat-deploy"
 import "hardhat-gas-reporter"
 import "hardhat-contract-sizer"
+import "hardhat-abi-exporter"
 import { HttpNetworkUserConfig } from "hardhat/types"
 
 // Load environment variables.
@@ -50,6 +51,10 @@ const config: HardhatUserConfig = {
       ...sharedNetworkConfig,
       url: "https://rpc-mainnet.maticvigil.com",
     },
+  },
+  abiExporter: {
+    clear: true,
+    flat: true,
   },
 }
 

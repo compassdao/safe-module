@@ -7,6 +7,24 @@ import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
+  error RoleExceeded();
+  error PermitReject(PermitSettledResult[] reason);
+  error BlankRoleId();
+  error RoleDeprecated();
+
+  event ModuleSetup(address owner, address safeProxy);
+  event AssignRoleToMember(address member, bytes32 roleId);
+  event RevokeRoleFromMember(address member, bytes32 roleId);
+  event DeprecateRole(bytes32 roleId);
+  event DropMember(address member);
+  event ExecTransaction(
+    address to,
+    uint256 value,
+    bytes data,
+    Operation inputOP,
+    address sender
+  );
+
   uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
   mapping(bytes32 => Role) internal roles;
@@ -19,24 +37,9 @@ contract SafeModule is Ownable {
     require(safeProxy != address(0), "Invalid safe proxy");
     _transferOwnership(owner);
     _safeProxy = safeProxy;
+
+    emit ModuleSetup(owner, safeProxy);
   }
-
-  error RoleExceeded();
-  error PermitReject(PermitSettledResult[] reason);
-  error BlankRoleId();
-  error RoleDeprecated();
-
-  event AssignRoleToMember(address member, bytes32 roleId);
-  event RevokeRoleFromMember(address member, bytes32 roleId);
-  event DeprecateRole(bytes32 roleId);
-  event DropMember(address member);
-  event ExecTransaction(
-    address to,
-    uint256 value,
-    bytes data,
-    Operation inputOP,
-    address sender
-  );
 
   modifier isValidRoleId(bytes32 roleId) {
     if (roleId == 0) {

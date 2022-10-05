@@ -17,14 +17,14 @@ library Permissions {
   uint256 internal constant _SCOPE_MAX_PARAMS = 48;
 
   event AllowContract(
-    bytes32 role,
+    bytes32 roleId,
     address targetContract,
     Operation operation
   );
 
-  event RevokeContract(bytes32 role, address targetContract);
+  event RevokeContract(bytes32 roleId, address targetContract);
 
-  event ScopeContract(bytes32 role, address targetContract);
+  event ScopeContract(bytes32 roleId, address targetContract);
 
   event AllowFunction(
     bytes32 roleId,
