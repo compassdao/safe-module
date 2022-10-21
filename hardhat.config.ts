@@ -11,12 +11,10 @@ import { HttpNetworkUserConfig } from "hardhat/types"
 // Load environment variables.
 dotenv.config()
 const { INFURA_KEY, MNEMONIC } = process.env
-const DEFAULT_MNEMONIC =
-  "you pink junior balance struggle among laundry bottom latin merry civil sea"
 
 const sharedNetworkConfig: HttpNetworkUserConfig = {
   accounts: {
-    mnemonic: MNEMONIC ?? DEFAULT_MNEMONIC,
+    mnemonic: MNEMONIC!,
   },
 }
 
@@ -39,17 +37,9 @@ const config: HardhatUserConfig = {
       ...sharedNetworkConfig,
       url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,
     },
-    rinkeby: {
+    goerli: {
       ...sharedNetworkConfig,
-      url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
-    },
-    xdai: {
-      ...sharedNetworkConfig,
-      url: "https://rpc.gnosischain.com/",
-    },
-    matic: {
-      ...sharedNetworkConfig,
-      url: "https://rpc-mainnet.maticvigil.com",
+      url: `https://goerli.infura.io/v3/${INFURA_KEY}`,
     },
   },
   abiExporter: {
