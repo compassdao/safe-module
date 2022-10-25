@@ -4,6 +4,7 @@ pragma solidity 0.8.6;
 import "./Context.sol";
 
 abstract contract Ownable is Context {
+  bool private _setup;
   address private _owner;
 
   event OwnershipTransferred(
@@ -11,13 +12,12 @@ abstract contract Ownable is Context {
     address indexed newOwner
   );
 
-  /**
-   * @dev Initializes the contract setting the deployer as the initial owner.
-   */
-  constructor() {
-    address msgSender = _msgSender();
-    _owner = msgSender;
-    emit OwnershipTransferred(address(0), msgSender);
+  function _setupOwner(address theOwner) internal virtual {
+    require(!_setup, "Ownable: setup already");
+
+    _setup = true;
+    _owner = theOwner;
+    emit OwnershipTransferred(address(0), theOwner);
   }
 
   /**
@@ -34,20 +34,4 @@ abstract contract Ownable is Context {
     require(owner() == _msgSender(), "Ownable: caller is not the owner");
     _;
   }
-
-  /**
-   * @dev Transfers ownership of the contract to a new account (`newOwner`).
-   * Can only be called by the current owner.
-   */
-  function _transferOwnership(address newOwner) internal virtual onlyOwner {
-    require(newOwner != address(0), "Ownable: new owner is the zero address");
-    emit OwnershipTransferred(_owner, newOwner);
-    _owner = newOwner;
-  }
 }
-
-//abstract contract TransferOwnable is Ownable {
-//    function transferOwnership(address newOwner) public virtual onlyOwner {
-//        _transferOwnership(newOwner);
-//    }
-//}

@@ -7,15 +7,19 @@ import "hardhat-gas-reporter"
 import "hardhat-contract-sizer"
 import "hardhat-abi-exporter"
 import { HttpNetworkUserConfig } from "hardhat/types"
+import "./scripts/clone-new-safe-module"
 
 // Load environment variables.
 dotenv.config()
 const { INFURA_KEY, MNEMONIC } = process.env
 
-const sharedNetworkConfig: HttpNetworkUserConfig = {
-  accounts: {
-    mnemonic: MNEMONIC!,
-  },
+const sharedNetworkConfig: HttpNetworkUserConfig = {}
+if (MNEMONIC) {
+  Object.assign(sharedNetworkConfig, {
+    accounts: {
+      mnemonic: MNEMONIC!,
+    },
+  })
 }
 
 const config: HardhatUserConfig = {

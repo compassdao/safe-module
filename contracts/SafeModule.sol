@@ -34,8 +34,18 @@ contract SafeModule is Ownable {
   address public _safeProxy;
 
   constructor(address owner, address payable safeProxy) {
+    bytes memory initParams = abi.encode(owner, safeProxy);
+    setUp(initParams);
+  }
+
+  function setUp(bytes memory initParams) public {
+    (address owner, address safeProxy) = abi.decode(
+      initParams,
+      (address, address)
+    );
+
     require(safeProxy != address(0), "Invalid safe proxy");
-    _transferOwnership(owner);
+    _setupOwner(owner);
     _safeProxy = safeProxy;
 
     emit ModuleSetup(owner, safeProxy);
