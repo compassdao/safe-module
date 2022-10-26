@@ -60,3 +60,8 @@ export const padPermitSettledResult = (...results: PermitSettledResult[]) => {
     16
   )
 }
+
+export const role = (id: number) =>
+  ethers.utils.hexlify(ethers.utils.zeroPad(id as any, 32))
+
+export const ROLE_ID = role(1)

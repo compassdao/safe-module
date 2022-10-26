@@ -1,5 +1,5 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
-import { safeModuleFixture } from "./fixture/safeModuleFixture"
+import { role, safeModuleFixture } from "./fixture/safeModuleFixture"
 import { ethers } from "hardhat"
 import { expect } from "chai"
 
@@ -15,165 +15,115 @@ const prepareDeployment = async () => {
   return { ...fixture, owner, other }
 }
 
-const bytes32 = (i: number) => {
-  let h = i.toString(16)
-  h = h.length % 2 == 1 ? `0${h}` : h
-  return ethers.utils.hexlify(ethers.utils.zeroPad(`0x${h}`, 32))
-}
-
-const ROLE_ID = ethers.utils.hexlify(ethers.utils.zeroPad("0x01", 32))
-const ROLE_BLANK = ethers.utils.hexlify(ethers.utils.zeroPad("0x", 32))
-
 describe("Membership", () => {
-  it("assign Role", async () => {
+  it("assign Roles", async () => {
     const { safeModule, owner, other } = await prepareDeployment()
 
     await expect(
-      safeModule.connect(owner).assignRole(other.address, ROLE_ID)
-    ).to.be.emit(safeModule, "AssignRoleToMember")
-
-    // again
-    await expect(
-      safeModule.connect(owner).assignRole(other.address, ROLE_ID)
-    ).to.be.emit(safeModule, "AssignRoleToMember")
-
-    // only assign one roleId
-    await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq([
-      ROLE_ID,
-      ...new Array(15).fill(ROLE_BLANK),
-    ])
-  })
-
-  it("roleId should not be 0", async () => {
-    const { safeModule, owner, other } = await prepareDeployment()
+      safeModule.connect(owner).assignRoles(other.address, [role(1)])
+    )
+      .to.be.emit(safeModule, "AssignRoles")
+      .withArgs(other.address, [role(1)])
 
     await expect(
       safeModule
         .connect(owner)
-        .assignRole(other.address, ethers.utils.zeroPad("0x", 32))
-    ).to.be.revertedWithCustomError(safeModule, "BlankRoleId")
+        .assignRoles(other.address, [role(1), role(0), role(1), role(2)])
+    )
+      .to.be.emit(safeModule, "AssignRoles")
+      .withArgs(other.address, [role(1), role(0), role(1), role(2)])
+
+    await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq([
+      role(1),
+      role(0),
+      role(1),
+      role(2),
+      ...new Array(12).fill(role(0)),
+    ])
   })
 
   it("supports up to 16 roleIds", async () => {
     const { safeModule, owner, other } = await prepareDeployment()
 
-    for (let i = 0; i < 16; ++i) {
-      await expect(
-        safeModule.connect(owner).assignRole(other.address, bytes32(i + 1))
-      ).to.be.emit(safeModule, "AssignRoleToMember")
-    }
-
     await expect(
-      safeModule.connect(owner).assignRole(other.address, bytes32(17))
-    ).to.be.revertedWithCustomError(safeModule, "RoleExceeded")
-
-    await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
-      new Array(16).fill(null).map((_, i) => bytes32(i + 1))
+      safeModule.connect(owner).assignRoles(
+        other.address,
+        new Array(17).fill(0).map((_, index) => role(index + 1))
+      )
     )
-  })
-
-  it("revert roleId", async () => {
-    const { safeModule, owner, other } = await prepareDeployment()
-
-    for (let i = 0; i < 16; ++i) {
-      await expect(
-        safeModule.connect(owner).assignRole(other.address, bytes32(i + 1))
-      ).to.be.emit(safeModule, "AssignRoleToMember")
-    }
-
-    await expect(
-      safeModule.connect(owner).revokeRole(other.address, bytes32(1))
-    ).to.be.emit(safeModule, "RevokeRoleFromMember")
-
-    await expect(
-      safeModule.connect(owner).revokeRole(other.address, bytes32(1))
-    ).to.be.not.emit(safeModule, "RevokeRoleFromMember")
-
-    await expect(
-      safeModule.connect(owner).revokeRole(other.address, bytes32(16))
-    ).to.be.emit(safeModule, "RevokeRoleFromMember")
+      .to.be.emit(safeModule, "AssignRoles")
+      .withArgs(
+        other.address,
+        new Array(16).fill(0).map((_, index) => role(index + 1))
+      )
 
     await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
-      new Array(16)
-        .fill(null)
-        .map((_, i) => (i == 0 || i == 15 ? bytes32(0) : bytes32(i + 1)))
+      new Array(16).fill(0).map((_, index) => role(index + 1))
     )
   })
 
   it("deprecate role", async () => {
     const { safeModule, owner, other } = await prepareDeployment()
 
-    for (let i = 0; i < 16; ++i) {
-      await expect(
-        safeModule.connect(owner).assignRole(other.address, bytes32(i + 1))
-      ).to.be.emit(safeModule, "AssignRoleToMember")
-    }
-
     await expect(
-      safeModule.connect(owner).deprecateRole(bytes32(1))
-    ).to.be.emit(safeModule, "DeprecateRole")
+      safeModule.connect(owner).assignRoles(
+        other.address,
+        new Array(17).fill(0).map((_, index) => role(index + 1))
+      )
+    )
+      .to.be.emit(safeModule, "AssignRoles")
+      .withArgs(
+        other.address,
+        new Array(16).fill(0).map((_, index) => role(index + 1))
+      )
 
-    await expect(
-      safeModule.connect(owner).deprecateRole(bytes32(1))
-    ).to.be.revertedWithCustomError(safeModule, "RoleDeprecated")
+    await expect(safeModule.connect(owner).deprecateRole(role(1)))
+      .to.be.emit(safeModule, "DeprecateRole")
+      .withArgs(role(1))
 
-    await expect(
-      safeModule.connect(owner).revokeRole(other.address, bytes32(16))
-    ).to.be.emit(safeModule, "RevokeRoleFromMember")
+    await expect(safeModule.connect(owner).deprecateRole(role(10)))
+      .to.be.emit(safeModule, "DeprecateRole")
+      .withArgs(role(10))
+
+    await expect(safeModule.connect(owner).deprecateRole(role(1)))
+      .to.be.revertedWithCustomError(safeModule, "RoleDeprecated")
+      .withArgs(role(1))
 
     await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
       new Array(16)
-        .fill(null)
-        .map((_, i) => (i == 0 || i == 15 ? bytes32(0) : bytes32(i + 1)))
+        .fill(0)
+        .map((_, index) => role(index === 0 || index === 9 ? 0 : index + 1))
     )
 
     // can not assign roleId 1 again
     await expect(
-      safeModule.connect(owner).assignRole(other.address, bytes32(1))
-    ).to.be.revertedWithCustomError(safeModule, "RoleDeprecated")
+      safeModule.connect(owner).assignRoles(other.address, [role(1)])
+    )
+      .to.be.revertedWithCustomError(safeModule, "RoleDeprecated")
+      .withArgs(role(1))
 
-    // assign roleId 16 again
+    // can not assign roleId 10 again
     await expect(
-      safeModule.connect(owner).assignRole(other.address, bytes32(16))
-    ).to.be.emit(safeModule, "AssignRoleToMember")
-
-    await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
-      new Array(16)
-        .fill(null)
-        .map((_, i) => (i == 0 ? bytes32(0) : bytes32(i + 1)))
+      safeModule.connect(owner).assignRoles(other.address, [role(10)])
     )
-  })
+      .to.be.revertedWithCustomError(safeModule, "RoleDeprecated")
+      .withArgs(role(10))
 
-  it("drop member", async () => {
-    const { safeModule, owner, other } = await prepareDeployment()
-
-    for (let i = 0; i < 16; ++i) {
-      await expect(
-        safeModule.connect(owner).assignRole(other.address, bytes32(i + 1))
-      ).to.be.emit(safeModule, "AssignRoleToMember")
-    }
-
-    await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
-      new Array(16).fill(null).map((_, i) => bytes32(i + 1))
-    )
-
+    // assign others
     await expect(
-      safeModule.connect(owner).dropMember(other.address)
-    ).to.be.emit(safeModule, "DropMember")
-
-    await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
-      new Array(16).fill(null).map(() => bytes32(0))
+      safeModule.connect(owner).assignRoles(
+        other.address,
+        new Array(16).fill(0).map((_, index) => role(index + 100))
+      )
     )
-
-    // assign again
-    for (let i = 0; i < 16; ++i) {
-      await expect(
-        safeModule.connect(owner).assignRole(other.address, bytes32(i + 1))
-      ).to.be.emit(safeModule, "AssignRoleToMember")
-    }
+      .to.be.emit(safeModule, "AssignRoles")
+      .withArgs(
+        other.address,
+        new Array(16).fill(0).map((_, index) => role(index + 100))
+      )
 
     await expect(await safeModule.rolesOf(other.address)).to.be.deep.eq(
-      new Array(16).fill(null).map((_, i) => bytes32(i + 1))
+      new Array(16).fill(0).map((_, index) => role(index + 100))
     )
   })
 })

@@ -45,7 +45,7 @@ export async function cloneNewSafeModule(
 }
 
 export const MASTER_COPY_FACTORY = "0x32dB1A2A54AcBa087708d5BD3915F89ade2F5C1B"
-export const PATTERN_ADDRESS = "0x5913A5F374AcA0711C05E3decacad4B53f262853"
+export const PATTERN_ADDRESS = "0x5C4e16233489626B760F2971A08fAC093B2382ae"
 
 task("cloneSafe", "Clone new safe module")
   .addParam("safeProxy")

@@ -21,6 +21,7 @@ async function main(owner: string, safeProxy: string) {
     })
     .then((factory) => factory.deploy(owner, safeProxy))
 
+  console.log("waiting txid: ", safeModule.deployTransaction.hash)
   await safeModule.deployed()
 
   console.log(`Deploy safe module completed. safeModule: ${safeModule.address}`)

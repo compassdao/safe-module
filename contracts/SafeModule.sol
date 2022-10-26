@@ -7,16 +7,16 @@ import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
-  error RoleExceeded();
+  uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
+
   error PermitReject(PermitSettledResult[] reason);
   error BlankRoleId();
-  error RoleDeprecated();
+  error RoleDeprecated(bytes32 roleId);
 
   event ModuleSetup(address owner, address safeProxy);
-  event AssignRoleToMember(address member, bytes32 roleId);
-  event RevokeRoleFromMember(address member, bytes32 roleId);
+  event AssignRoles(address member, bytes32[_MAX_ROLE_PER_MEMBER] roleIds);
   event DeprecateRole(bytes32 roleId);
-  event DropMember(address member);
+
   event ExecTransaction(
     address to,
     uint256 value,
@@ -24,8 +24,6 @@ contract SafeModule is Ownable {
     Operation inputOP,
     address sender
   );
-
-  uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
   mapping(bytes32 => Role) internal roles;
   mapping(address => bytes32[_MAX_ROLE_PER_MEMBER]) internal members;
@@ -55,59 +53,30 @@ contract SafeModule is Ownable {
     if (roleId == 0) {
       revert BlankRoleId();
     } else if (deprecatedRoles[roleId]) {
-      revert RoleDeprecated();
+      revert RoleDeprecated(roleId);
     }
 
     _;
   }
 
-  /// @dev Assign a role to a member
-  /// @param member Assigned address
-  /// @param roleId Id of a role
+  /// @dev Assign roles to a member
+  /// @param member address
+  /// @param roleIds Id of a roles
   /// @notice Can only be called by owner
-  function assignRole(address member, bytes32 roleId)
+  function assignRoles(address member, bytes32[] memory roleIds)
     external
     onlyOwner
-    isValidRoleId(roleId)
   {
-    bool assigned = false;
-
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      if (members[member][i] == 0 || members[member][i] == roleId) {
-        members[member][i] = roleId;
-        assigned = true;
-        break;
+      bytes32 roleId = i < roleIds.length ? roleIds[i] : bytes32(0);
+      if (deprecatedRoles[roleId]) {
+        revert RoleDeprecated(roleId);
       }
+
+      members[member][i] = roleId;
     }
 
-    if (assigned == false) {
-      revert RoleExceeded();
-    }
-
-    emit AssignRoleToMember(member, roleId);
-  }
-
-  /// @dev Revoke a role from a member
-  /// @param member Assigned address before
-  /// @param roleId Id of a role
-  /// @notice Can only be called by owner
-  function revokeRole(address member, bytes32 roleId)
-    external
-    onlyOwner
-    isValidRoleId(roleId)
-  {
-    bool revoke = false;
-
-    for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      if (members[member][i] == roleId) {
-        members[member][i] = 0;
-        revoke = true;
-      }
-    }
-
-    if (revoke) {
-      emit RevokeRoleFromMember(member, roleId);
-    }
+    emit AssignRoles(member, members[member]);
   }
 
   /// @dev Deprecate a roleId and this roleId can't used anymore
@@ -122,17 +91,6 @@ contract SafeModule is Ownable {
     emit DeprecateRole(roleId);
   }
 
-  /// @dev Delete a member
-  /// @param member Address to be deleted
-  /// @notice Can only be called by owner
-  function dropMember(address member) external onlyOwner {
-    for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      members[member][i] = 0;
-    }
-
-    emit DropMember(member);
-  }
-
   /// @dev Get roles of an address for now
   /// @param member Member address
   function rolesOf(address member)
@@ -145,7 +103,7 @@ contract SafeModule is Ownable {
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
       bytes32 roleId = members[member][i];
 
-      if (roleId == 0 || deprecatedRoles[roleId] == true) {
+      if (roleId == 0 || deprecatedRoles[roleId]) {
         continue;
       }
 

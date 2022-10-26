@@ -5,13 +5,14 @@ import {
   padPermitSettledResult,
   ParameterType,
   PermitSettledResult,
+  role,
+  ROLE_ID,
   safeModuleFixture,
 } from "./fixture/safeModuleFixture"
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
 
 const AddressOne = "0x0000000000000000000000000000000000000001"
-const ROLE_ID = ethers.utils.zeroPad("0x01", 32)
 
 const prepareDeployment = async () => {
   const customOwnerSafeModuleFixture = async () => {
@@ -26,7 +27,7 @@ const prepareDeployment = async () => {
   const testPluckParam = await ethers
     .getContractFactory("TestPluckParam")
     .then((factory) => factory.deploy())
-  await safeModule.connect(owner).assignRole(other.address, ROLE_ID)
+  await safeModule.connect(owner).assignRoles(other.address, [ROLE_ID])
   await safeModule.connect(owner).scopeContract(ROLE_ID, testPluckParam.address)
 
   return { ...fixture, owner, other, testPluckParam }

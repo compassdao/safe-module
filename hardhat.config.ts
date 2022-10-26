@@ -11,7 +11,7 @@ import "./scripts/clone-new-safe-module"
 
 // Load environment variables.
 dotenv.config()
-const { INFURA_KEY, MNEMONIC } = process.env
+const { MNEMONIC } = process.env
 
 const sharedNetworkConfig: HttpNetworkUserConfig = {}
 if (MNEMONIC) {
@@ -39,11 +39,11 @@ const config: HardhatUserConfig = {
   networks: {
     mainnet: {
       ...sharedNetworkConfig,
-      url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,
+      url: "https://rpc.ankr.com/eth",
     },
     goerli: {
       ...sharedNetworkConfig,
-      url: `https://goerli.infura.io/v3/${INFURA_KEY}`,
+      url: "https://rpc.ankr.com/eth_goerli",
     },
   },
   abiExporter: {

@@ -3,12 +3,11 @@ import {
   Operation,
   padPermitSettledResult,
   PermitSettledResult,
+  ROLE_ID,
   safeModuleFixture,
 } from "./fixture/safeModuleFixture"
 import { ethers } from "hardhat"
 import { expect } from "chai"
-
-const ROLE_ID = ethers.utils.zeroPad("0x01", 32)
 
 const prepareDeployment = async () => {
   const customOwnerSafeModuleFixture = async () => {
@@ -24,7 +23,7 @@ const prepareDeployment = async () => {
   const { data: doNothingData } =
     await testContract.populateTransaction.doNothing()
 
-  await safeModule.connect(owner).assignRole(other.address, ROLE_ID)
+  await safeModule.connect(owner).assignRoles(other.address, [ROLE_ID])
 
   return { ...fixture, doNothingData: doNothingData!, owner, other }
 }
