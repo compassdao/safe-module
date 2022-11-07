@@ -45,6 +45,10 @@ const config: HardhatUserConfig = {
       ...sharedNetworkConfig,
       url: "https://rpc.ankr.com/eth_goerli",
     },
+    polygon: {
+      ...sharedNetworkConfig,
+      url: "https://rpc.ankr.com/polygon",
+    },
   },
   abiExporter: {
     clear: true,
