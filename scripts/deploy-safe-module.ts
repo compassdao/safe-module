@@ -7,12 +7,15 @@ async function main(owner: string, safeProxy: string) {
 
   console.log(`Deployment arguments. owner: ${owner}, safeProxy: ${safeProxy}`)
 
-  console.log("Deploy Permissions library...")
   const permissions = await ethers
     .getContractFactory("Permissions")
     .then((factory) => factory.deploy())
 
-  console.log("Deploy SafeModule...")
+  console.log(
+    `Deploy Permissions library(${permissions.deployTransaction.hash})...`
+  )
+  // await permissions.deployed()
+
   const safeModule = await ethers
     .getContractFactory("SafeModule", {
       libraries: {
@@ -21,7 +24,7 @@ async function main(owner: string, safeProxy: string) {
     })
     .then((factory) => factory.deploy(owner, safeProxy))
 
-  console.log("waiting txid: ", safeModule.deployTransaction.hash)
+  console.log(`Deploy SafeModule(${safeModule.deployTransaction.hash})...`)
   await safeModule.deployed()
 
   console.log(`Deploy safe module completed. safeModule: ${safeModule.address}`)

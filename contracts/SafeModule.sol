@@ -7,6 +7,8 @@ import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
+  string public constant version = "0.0.1";
+
   uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
   error PermitReject(PermitSettledResult[] reason);
@@ -27,7 +29,7 @@ contract SafeModule is Ownable {
 
   mapping(bytes32 => Role) internal roles;
   mapping(address => bytes32[_MAX_ROLE_PER_MEMBER]) internal members;
-  mapping(bytes32 => bool) deprecatedRoles;
+  mapping(bytes32 => bool) internal deprecatedRoles;
 
   address public _safeProxy;
 
@@ -229,6 +231,22 @@ contract SafeModule is Ownable {
     Operation inputOP
   ) public {
     _execTransaction(to, value, data, inputOP);
+  }
+
+  struct Call {
+    address to;
+    uint256 value;
+    bytes data;
+    Operation inputOP;
+  }
+
+  function execTransactionsFromModule(Call[] calldata calls) public {
+    require(calls.length > 0, "Nothing to call");
+
+    for (uint256 i = 0; i < calls.length; ++i) {
+      Call memory call = calls[i];
+      _execTransaction(call.to, call.value, call.data, call.inputOP);
+    }
   }
 
   function _execTransaction(
