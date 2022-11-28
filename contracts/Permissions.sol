@@ -466,6 +466,9 @@ library Permissions {
     ParameterType parameterType,
     Comparison comparison
   ) internal pure {
+    require(uint256(parameterType) <= 2, "Permissions: invalid parameter type");
+    require(uint256(comparison) <= 2, "Permissions: invalid comparison type");
+
     if (parameterType != ParameterType.Static && comparison != Comparison.Eq) {
       require(
         false,
@@ -493,7 +496,7 @@ library Permissions {
   }
 
   // LEFT SIDE
-  // 2   bits -> options
+  // 2   bits -> operation
   // 1   bits -> isBypass
   // 5   bits -> unused
   // 8   bits -> length
@@ -506,7 +509,7 @@ library Permissions {
     // Wipe the LEFT SIDE clean. Start from there
     funcScopedConfig = (funcScopedConfig << 16) >> 16;
 
-    // set options -> 256 - 2 = 254
+    // set operation -> 256 - 2 = 254
     funcScopedConfig |= uint256(operation) << 254;
 
     // set isBypass -> 256 - 2 - 1 = 253
@@ -515,7 +518,7 @@ library Permissions {
     }
 
     // set Length -> 48 + 96 + 96 = 240
-    funcScopedConfig |= length << 240;
+    funcScopedConfig |= (length << 248) >> 8;
 
     return funcScopedConfig;
   }
@@ -548,6 +551,7 @@ library Permissions {
     Comparison comparison
   ) internal pure returns (uint256) {
     uint256 isScopedMask = 1 << (index + 96 + 96);
+    uint256 twoBitsMask = 3;
     uint256 typeMask = 3 << (index * 2 + 96);
     uint256 comparisonMask = 3 << (index * 2);
 
@@ -558,10 +562,12 @@ library Permissions {
     }
 
     funcScopedConfig &= ~typeMask;
-    funcScopedConfig |= uint256(parameterType) << (index * 2 + 96);
+    funcScopedConfig |=
+      (uint256(parameterType) & twoBitsMask) <<
+      (index * 2 + 96);
 
     funcScopedConfig &= ~comparisonMask;
-    funcScopedConfig |= uint256(comparison) << (index * 2);
+    funcScopedConfig |= (uint256(comparison) & twoBitsMask) << (index * 2);
 
     return funcScopedConfig;
   }

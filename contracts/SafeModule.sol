@@ -7,7 +7,7 @@ import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
-  string public constant version = "0.1.0";
+  string public constant version = "0.1.1";
   uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
   event ModuleSetup(address owner, address safeProxy);

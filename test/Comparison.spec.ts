@@ -476,4 +476,44 @@ describe("Comparison", () => {
       "Permissions: input value isn't less than target value"
     )
   })
+
+  it("disallow invalid parameter type", async () => {
+    const { safeModule, testContract, doNothingData, owner } =
+      await prepareFixture()
+
+    await expect(
+      safeModule
+        .connect(owner)
+        .scopeFunction(
+          DEFAULT_ROLE_NAME,
+          testContract.address,
+          doNothingData,
+          [true],
+          [3],
+          [Comparison.Eq],
+          ["0x"],
+          Operation.Call
+        )
+    ).to.be.rejectedWith("function was called with incorrect parameters")
+  })
+
+  it("disallow invalid operation", async () => {
+    const { safeModule, testContract, doNothingData, owner } =
+      await prepareFixture()
+
+    await expect(
+      safeModule
+        .connect(owner)
+        .scopeFunction(
+          DEFAULT_ROLE_NAME,
+          testContract.address,
+          doNothingData,
+          [true],
+          [ParameterType.Static],
+          [3],
+          ["0x"],
+          Operation.Call
+        )
+    ).to.be.rejectedWith("function was called with incorrect parameters")
+  })
 })
