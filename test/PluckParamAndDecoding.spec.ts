@@ -2,11 +2,8 @@ import { ethers } from "hardhat"
 import {
   Comparison,
   Operation,
-  padPermitSettledResult,
   ParameterType,
-  PermitSettledResult,
-  role,
-  ROLE_ID,
+  DEFAULT_ROLE_NAME,
   safeModuleFixture,
 } from "./fixture/safeModuleFixture"
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
@@ -14,23 +11,23 @@ import { expect } from "chai"
 
 const AddressOne = "0x0000000000000000000000000000000000000001"
 
-const prepareDeployment = async () => {
-  const customOwnerSafeModuleFixture = async () => {
-    const [owner] = await ethers.getSigners()
-    return safeModuleFixture(owner.address)
-  }
+const prepareFixture = async () => {
+  const fixture = await loadFixture(safeModuleFixture)
+  const { safeModule, owner, other } = fixture
 
-  const fixture = await loadFixture(customOwnerSafeModuleFixture)
-  const { safeModule } = fixture
-  const [owner, other] = await ethers.getSigners()
+  await safeModule
+    .connect(owner)
+    .assignRoles(other.address, [DEFAULT_ROLE_NAME])
 
   const testPluckParam = await ethers
     .getContractFactory("TestPluckParam")
     .then((factory) => factory.deploy())
-  await safeModule.connect(owner).assignRoles(other.address, [ROLE_ID])
-  await safeModule.connect(owner).scopeContract(ROLE_ID, testPluckParam.address)
 
-  return { ...fixture, owner, other, testPluckParam }
+  await safeModule
+    .connect(owner)
+    .scopeContract(DEFAULT_ROLE_NAME, testPluckParam.address)
+
+  return { ...fixture, testPluckParam }
 }
 
 const encodeStatic = (types: any[], values: any[]) => {
@@ -47,8 +44,7 @@ const encodeDynamic32 = (types: any[], values: any[]) => {
 
 describe("PluckParam - Decoding", () => {
   it("static, dynamic - (bytes4, string)", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("staticDynamic")
@@ -57,7 +53,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true],
@@ -86,6 +82,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -97,21 +94,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("static, dynamic, dynamic32 - (address,bytes,uint32[])", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("staticDynamicDynamic32")
@@ -120,7 +113,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -152,6 +145,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -163,21 +157,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).rejectedWith("Permissions: input value isn't equal to target value")
   })
 
   it("static, dynamic32, dynamic - (uint32,bytes4[],string)", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("staticDynamic32Dynamic")
@@ -186,7 +176,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -218,6 +208,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -229,21 +220,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).to.be.revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("dynamic, static, dynamic32 - (bytes,bool,bytes2[])", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("dynamicStaticDynamic32")
@@ -252,7 +239,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -284,6 +271,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -295,21 +283,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).to.be.revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("dynamic, dynamic32, static - (string,uint32[],uint256)", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("dynamicDynamic32Static")
@@ -318,7 +302,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -350,6 +334,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -361,21 +346,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).to.revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("dynamic32, static, dynamic - (address[],bytes2,bytes)", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("dynamic32StaticDynamic")
@@ -384,7 +365,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -416,6 +397,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -427,21 +409,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).to.be.revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("dynamic32, dynamic, static - (bytes2[],string,uint32)", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("dynamic32DynamicStatic")
@@ -450,7 +428,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -482,6 +460,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -493,21 +472,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).to.revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("warning! don't try this at home", async () => {
-    const { safeModule, testPluckParam, owner, other } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("unsupportedFixedSizeAndDynamic")
@@ -516,7 +491,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true, true, true],
@@ -546,6 +521,7 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -557,21 +533,17 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad!,
           Operation.Call
         )
-    )
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    ).to.revertedWith("Permissions: input value isn't equal to target value")
   })
 
   it("static - fails if calldata is too short", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("staticFn")
@@ -580,7 +552,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [true],
@@ -594,28 +566,29 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           funcSig,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
+    ).to.be.revertedWith("Permissions: calldata out of bounds for static type")
 
     await expect(
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           `${funcSig}aabbccdd`,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
+    ).to.be.revertedWith("Permissions: calldata out of bounds for static type")
   })
 
   it("dynamic - fails if calldata too short", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("staticDynamic")
@@ -627,7 +600,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [false, true],
@@ -653,30 +626,37 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataShort,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
+    ).to.be.revertedWith(
+      "Permissions: calldata out of bounds for dynamic type at the first"
+    )
 
     // just the selector
     await expect(
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           funcSig,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
+    ).to.be.revertedWith(
+      "Permissions: calldata out of bounds for dynamic type at the first"
+    )
 
     // ok
     await expect(
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,
@@ -686,8 +666,7 @@ describe("PluckParam - Decoding", () => {
   })
 
   it("dynamic - fails if payload is missing", async () => {
-    const { safeModule, testPluckParam, owner, other, permissions } =
-      await prepareDeployment()
+    const { safeModule, testPluckParam, owner, other } = await prepareFixture()
 
     const funcSig = testPluckParam.interface.getSighash(
       testPluckParam.interface.getFunction("staticDynamic")
@@ -696,7 +675,7 @@ describe("PluckParam - Decoding", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testPluckParam.address,
         funcSig,
         [false, true],
@@ -722,18 +701,22 @@ describe("PluckParam - Decoding", () => {
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataBad,
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "CalldataOutOfBounds")
+    ).to.be.revertedWith(
+      "Permissions: calldata out of bounds for dynamic type at the end"
+    )
 
     // ok
     await expect(
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testPluckParam.address,
           0,
           dataGood!,

@@ -6,6 +6,7 @@ enum ParameterType {
   Dynamic,
   Dynamic32
 }
+
 enum Comparison {
   Eq,
   Gt,
@@ -23,13 +24,4 @@ enum Operation {
   Call,
   DelegateCall,
   Both
-}
-
-enum PermitSettledResult {
-  Unknown,
-  Fulfilled,
-  ContractScopeRejected,
-  FunctionScopeRejected,
-  ParametersScopeRejected,
-  OperationRejected
 }

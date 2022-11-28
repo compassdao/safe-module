@@ -1,11 +1,11 @@
 import { ethers } from "hardhat"
 
-export const safeModuleFixture = async (owner?: string) => {
+export const safeModuleFixture = async (myAddress?: string) => {
+  const [owner, other] = await ethers.getSigners()
+
   const safeProxy = await ethers
     .getContractFactory("TestSafeProxy")
     .then((factory) => factory.deploy())
-
-  owner ??= safeProxy.address
 
   const permissions = await ethers
     .getContractFactory("Permissions")
@@ -17,13 +17,15 @@ export const safeModuleFixture = async (owner?: string) => {
         Permissions: permissions.address,
       },
     })
-    .then((factory) => factory.deploy(owner!, safeProxy.address))
+    .then((factory) =>
+      factory.deploy(myAddress ?? owner.address, safeProxy.address)
+    )
 
   const testContract = await ethers
     .getContractFactory("TestContract")
     .then((factory) => factory.deploy())
 
-  return { safeProxy, permissions, safeModule, testContract }
+  return { safeProxy, permissions, safeModule, testContract, owner, other }
 }
 
 export enum Operation {
@@ -64,4 +66,4 @@ export const padPermitSettledResult = (...results: PermitSettledResult[]) => {
 export const role = (id: number) =>
   ethers.utils.hexlify(ethers.utils.zeroPad(id as any, 32))
 
-export const ROLE_ID = role(1)
+export const DEFAULT_ROLE_NAME = role(1)

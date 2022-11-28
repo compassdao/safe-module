@@ -2,197 +2,196 @@
 pragma solidity ^0.8.0;
 import "./Enums.sol";
 
-struct ScopedContract {
+struct ContractScopedConfig {
   Scope scope;
-  Operation op;
+  Operation operation;
 }
 
 struct Role {
-  mapping(address => ScopedContract) contracts;
+  mapping(address => ContractScopedConfig) contracts;
   mapping(bytes32 => uint256) functions;
-  mapping(bytes32 => bytes32) expectedValues;
+  mapping(bytes32 => bytes32) targetValues;
 }
 
 library Permissions {
   uint256 internal constant _SCOPE_MAX_PARAMS = 48;
 
   event AllowContract(
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     Operation operation
   );
 
-  event RevokeContract(bytes32 roleId, address targetContract);
+  event RevokeContract(bytes32 roleName, address theContract);
 
-  event ScopeContract(bytes32 roleId, address targetContract);
+  event ScopeContract(bytes32 roleName, address theContract);
 
   event AllowFunction(
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 functionSig,
     Operation operation,
-    uint256 funcScopedFlag
+    uint256 funcScopedConfig
   );
 
   event RevokeFunction(
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 functionSig,
-    uint256 funcScopedFlag
+    uint256 funcScopedConfig
   );
 
   event ScopeFunction(
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 functionSig,
     bool[] isScopeds,
-    ParameterType[] paramTypes,
+    ParameterType[] parameterTypes,
     Comparison[] comparisons,
-    bytes[] expectedValues,
+    bytes[] targetValues,
     Operation operation,
-    uint256 funcScopedFlag
+    uint256 funcScopedConfig
   );
 
-  /// Function signature too short
-  error FunctionSignatureTooShort();
-
-  /// The provided calldata for execution is too short, or an OutOfBounds scoped parameter was configured
-  error CalldataOutOfBounds();
-
-  /// Arrays must be the same length
-  error ArraysDifferentLength();
-
-  /// Exceeds the max number of params supported
-  error ScopeMaxParametersExceeded();
-
-  /// Not possible to define gt/lt for Dynamic types
-  error UnsuitableRelativeComparison();
-
-  /// Expected value for static types should have a size of exactly 32 bytes
-  error UnsuitableStaticExpectedValueSize();
-
-  /// Expected value for Dynamic32 types should be a multiple of exactly 32 bytes
-  error UnsuitableDynamic32ExpectedValueSize();
-
-  function check(
+  function verify(
     Role storage role,
     address to,
     bytes calldata data,
-    Operation inputOP
-  ) public view returns (PermitSettledResult) {
-    return _checkTransaction(role, to, data, inputOP);
+    Operation operation
+  ) public view {
+    _verifyTransaction(role, to, data, operation);
   }
 
-  function _checkTransaction(
+  function _verifyTransaction(
     Role storage role,
-    address targetContract,
+    address theContract,
     bytes memory data,
-    Operation inputOP
-  ) internal view returns (PermitSettledResult) {
-    if (data.length < 4) {
-      revert FunctionSignatureTooShort();
-    }
+    Operation operation
+  ) internal view {
+    require(data.length >= 4, "Permissions: function signature too short");
 
-    ScopedContract storage scopedContract = role.contracts[targetContract];
-    if (scopedContract.scope == Scope.Contract) {
-      return
-        _checkOP(inputOP, scopedContract.op)
-          ? PermitSettledResult.Fulfilled
-          : PermitSettledResult.OperationRejected;
-    } else if (scopedContract.scope == Scope.Function) {
-      uint256 funcScopedFlag = role.functions[
-        _key4Func(targetContract, bytes4(data))
+    ContractScopedConfig storage scopedConfig = role.contracts[theContract];
+    require(
+      scopedConfig.scope != Scope.None,
+      "Permissions: contract not allowed"
+    );
+
+    if (scopedConfig.scope == Scope.Contract) {
+      _verifyOperation(operation, scopedConfig.operation);
+      return;
+    } else if (scopedConfig.scope == Scope.Function) {
+      uint256 funcScopedConfig = role.functions[
+        _key4Func(theContract, bytes4(data))
       ];
 
-      if (funcScopedFlag == 0) {
-        return PermitSettledResult.FunctionScopeRejected;
+      require(funcScopedConfig != 0, "Permissions: function not allowed");
+      (Operation configOperation, bool isBypass, ) = _unpackLeft(
+        funcScopedConfig
+      );
+
+      _verifyOperation(operation, configOperation);
+
+      if (!isBypass) {
+        _verifyParameters(role, funcScopedConfig, theContract, data);
       }
 
-      (Operation scopedFuncOP, bool isBypass, ) = _unpackLeft(funcScopedFlag);
-
-      if (!_checkOP(inputOP, scopedFuncOP)) {
-        return PermitSettledResult.OperationRejected;
-      } else if (isBypass) {
-        return PermitSettledResult.Fulfilled;
-      }
-
-      return
-        _checkParameters(role, funcScopedFlag, targetContract, data)
-          ? PermitSettledResult.Fulfilled
-          : PermitSettledResult.ParametersScopeRejected;
+      return;
     }
 
-    return PermitSettledResult.ContractScopeRejected;
+    require(false, "Permissions: should not be here");
   }
 
-  function _checkParameters(
+  function _verifyParameters(
     Role storage role,
-    uint256 funcScopedFlag,
-    address targetContract,
+    uint256 funcScopedConfig,
+    address theContract,
     bytes memory data
-  ) internal view returns (bool permitted) {
-    permitted = false;
-
+  ) internal view {
     bytes4 funcSig = bytes4(data);
-    (, , uint256 argsCount) = _unpackLeft(funcScopedFlag);
+    (, , uint256 argsCount) = _unpackLeft(funcScopedConfig);
 
     for (uint256 i = 0; i < argsCount; ++i) {
-      (bool isScoped, ParameterType paramType, Comparison cp) = _unpackRight(
-        funcScopedFlag,
-        i
-      );
+      (
+        bool isScoped,
+        ParameterType parameterType,
+        Comparison comparison
+      ) = _unpackRight(funcScopedConfig, i);
 
       if (!isScoped) {
         continue;
       }
 
       bytes32 inputValue;
-      if (paramType != ParameterType.Static) {
-        inputValue = _pluckDynamicValue(data, paramType, i);
+      if (parameterType != ParameterType.Static) {
+        inputValue = _pluckDynamicValue(data, parameterType, i);
       } else {
         inputValue = _pluckStaticValue(data, i);
       }
 
-      bytes32 key = _key4FuncArg(targetContract, funcSig, i);
-      permitted = _compare(cp, role.expectedValues[key], inputValue);
-
-      if (!permitted) {
-        break;
-      }
+      bytes32 key = _key4FuncArg(theContract, funcSig, i);
+      _verifyComparison(comparison, inputValue, role.targetValues[key]);
     }
   }
 
-  function _compare(
-    Comparison cp,
-    bytes32 expectedValue,
-    bytes32 inputValue
-  ) internal pure returns (bool) {
-    if (
-      (cp == Comparison.Eq && inputValue == expectedValue) ||
-      (cp == Comparison.Gt && inputValue > expectedValue) ||
-      (cp == Comparison.Lt && inputValue < expectedValue)
-    ) {
-      return true;
+  function _verifyComparison(
+    Comparison comparison,
+    bytes32 inputValue,
+    bytes32 targetValue
+  ) internal pure {
+    if (comparison == Comparison.Eq) {
+      require(
+        inputValue == targetValue,
+        "Permissions: input value isn't equal to target value"
+      );
+      return;
+    } else if (comparison == Comparison.Gt) {
+      require(
+        inputValue > targetValue,
+        "Permissions: input value isn't greater than target value"
+      );
+      return;
+    } else if (comparison == Comparison.Lt) {
+      require(
+        inputValue < targetValue,
+        "Permissions: input value isn't less than target value"
+      );
+      return;
     }
 
-    return false;
+    require(false, "Permissions: invalid comparison");
   }
 
-  function _checkOP(Operation inputOP, Operation scopedOP)
+  function _verifyOperation(Operation inputOperation, Operation configOperation)
     internal
     pure
-    returns (bool)
   {
-    if (
-      ((scopedOP == Operation.Call || scopedOP == Operation.DelegateCall) &&
-        inputOP == scopedOP) ||
-      (scopedOP == Operation.Both &&
-        (inputOP == Operation.Call || inputOP == Operation.DelegateCall))
-    ) {
-      return true;
+    require(
+      configOperation != Operation.None,
+      "Permissions: opearion not config"
+    );
+
+    if (configOperation == Operation.Call) {
+      require(
+        inputOperation == Operation.Call,
+        "Permissions: require call operation"
+      );
+      return;
+    } else if (configOperation == Operation.DelegateCall) {
+      require(
+        inputOperation == Operation.DelegateCall,
+        "Permissions: require delegatecall operation"
+      );
+      return;
+    } else if (configOperation == Operation.Both) {
+      require(
+        inputOperation == Operation.Call ||
+          inputOperation == Operation.DelegateCall,
+        "Permissions: require call or delegatecall operation"
+      );
+      return;
     }
 
-    return false;
+    require(false, "Permissions: invalid input operation");
   }
 
   function _key4Func(address addr, bytes4 funcSig)
@@ -214,14 +213,13 @@ library Permissions {
   function _pluckStaticValue(bytes memory data, uint256 index)
     internal
     pure
-    returns (
-      bytes32 // todo why?
-    )
+    returns (bytes32)
   {
     // pre-check: is there a word available for the current parameter at argumentsBlock?
-    if (data.length < 4 + index * 32 + 32) {
-      revert CalldataOutOfBounds();
-    }
+    require(
+      data.length >= 4 + index * 32 + 32,
+      "Permissions: calldata out of bounds for static type"
+    );
 
     uint256 offset = 4 + index * 32;
     bytes32 value;
@@ -234,15 +232,18 @@ library Permissions {
 
   function _pluckDynamicValue(
     bytes memory data,
-    ParameterType paramType,
+    ParameterType parameterType,
     uint256 index
   ) internal pure returns (bytes32) {
-    // todo why?
-    assert(paramType != ParameterType.Static);
+    require(
+      parameterType != ParameterType.Static,
+      "Permissions: only non-static type here"
+    );
     // pre-check: is there a word available for the current parameter at argumentsBlock?
-    if (data.length < 4 + index * 32 + 32) {
-      revert CalldataOutOfBounds();
-    }
+    require(
+      data.length >= 4 + index * 32 + 32,
+      "Permissions: calldata out of bounds for dynamic type at the first"
+    );
 
     /*
      * Encoded calldata:
@@ -291,15 +292,16 @@ library Permissions {
     uint256 start = 4 + offsetPayload + 32;
     uint256 end = start +
       (
-        paramType == ParameterType.Dynamic32
+        parameterType == ParameterType.Dynamic32
           ? lengthPayload * 32
           : lengthPayload
       );
 
     // are we slicing out of bounds?
-    if (data.length < end) {
-      revert CalldataOutOfBounds();
-    }
+    require(
+      data.length >= end,
+      "Permissions: calldata out of bounds for dynamic type at the end"
+    );
 
     return keccak256(_slice(data, start, end));
   }
@@ -317,153 +319,176 @@ library Permissions {
 
   function allowContract(
     Role storage role,
-    bytes32 roleId,
-    address targetContract,
-    Operation op
+    bytes32 roleName,
+    address theContract,
+    Operation operation
   ) external {
-    role.contracts[targetContract] = ScopedContract(Scope.Contract, op);
-    emit AllowContract(roleId, targetContract, op);
+    role.contracts[theContract] = ContractScopedConfig(
+      Scope.Contract,
+      operation
+    );
+
+    emit AllowContract(roleName, theContract, operation);
   }
 
   function revokeContract(
     Role storage role,
-    bytes32 roleId,
-    address targetContract
+    bytes32 roleName,
+    address theContract
   ) external {
-    role.contracts[targetContract] = ScopedContract(Scope.None, Operation.None);
-    emit RevokeContract(roleId, targetContract);
+    role.contracts[theContract] = ContractScopedConfig(
+      Scope.None,
+      Operation.None
+    );
+
+    emit RevokeContract(roleName, theContract);
   }
 
   function scopeContract(
     Role storage role,
-    bytes32 roleId,
-    address targetContract
+    bytes32 roleName,
+    address theContract
   ) external {
-    role.contracts[targetContract] = ScopedContract(
+    role.contracts[theContract] = ContractScopedConfig(
       Scope.Function,
       Operation.None
     );
-    emit ScopeContract(roleId, targetContract);
+
+    emit ScopeContract(roleName, theContract);
   }
 
   function allowFunction(
     Role storage role,
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 funcSig,
-    Operation op
+    Operation operation
   ) external {
-    uint256 funcScopedFlag = _packLeft(0, op, true, 0);
-    role.functions[_key4Func(targetContract, funcSig)] = funcScopedFlag;
+    uint256 funcScopedConfig = _packLeft(0, operation, true, 0);
+    role.functions[_key4Func(theContract, funcSig)] = funcScopedConfig;
 
-    emit AllowFunction(roleId, targetContract, funcSig, op, funcScopedFlag);
+    emit AllowFunction(
+      roleName,
+      theContract,
+      funcSig,
+      operation,
+      funcScopedConfig
+    );
   }
 
   function revokeFunction(
     Role storage role,
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 funcSig
   ) external {
-    role.functions[_key4Func(targetContract, funcSig)] = 0;
-    emit RevokeFunction(roleId, targetContract, funcSig, 0);
+    role.functions[_key4Func(theContract, funcSig)] = 0;
+    emit RevokeFunction(roleName, theContract, funcSig, 0);
   }
 
   function scopeFunction(
     Role storage role,
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 funcSig,
     bool[] memory isScopeds,
-    ParameterType[] memory paramTypes,
-    Comparison[] memory cps,
-    bytes[] calldata expectedValues,
-    Operation op
+    ParameterType[] memory parameterTypes,
+    Comparison[] memory comparisons,
+    bytes[] calldata targetValues,
+    Operation operation
   ) external {
     uint256 argsCount = isScopeds.length;
 
-    if (
-      argsCount != paramTypes.length ||
-      argsCount != cps.length ||
-      argsCount != expectedValues.length
-    ) {
-      revert ArraysDifferentLength();
-    } else if (argsCount > _SCOPE_MAX_PARAMS) {
-      revert ScopeMaxParametersExceeded();
-    }
+    require(
+      argsCount <= _SCOPE_MAX_PARAMS,
+      "Permissions: parameters count exceeded"
+    );
+    require(
+      argsCount == parameterTypes.length &&
+        argsCount == comparisons.length &&
+        argsCount == targetValues.length,
+      "Permissions: length of arrays should be the same"
+    );
 
     for (uint256 i = 0; i < argsCount; ++i) {
-      if (isScopeds[i]) {
-        _checkExpectedComparison(paramTypes[i], cps[i]);
-        _checkExpectedValue(paramTypes[i], expectedValues[i]);
+      if (!isScopeds[i]) {
+        continue;
       }
+
+      _enforceConfigComparison(parameterTypes[i], comparisons[i]);
+      _enforceTargetValue(parameterTypes[i], targetValues[i]);
     }
 
-    uint256 funcScopedFlag = _packLeft(0, op, false, argsCount);
+    uint256 funcScopedConfig = _packLeft(0, operation, false, argsCount);
 
     for (uint256 i = 0; i < argsCount; ++i) {
-      funcScopedFlag = _packRight(
-        funcScopedFlag,
+      funcScopedConfig = _packRight(
+        funcScopedConfig,
         i,
         isScopeds[i],
-        paramTypes[i],
-        cps[i]
+        parameterTypes[i],
+        comparisons[i]
       );
     }
 
-    role.functions[_key4Func(targetContract, funcSig)] = funcScopedFlag;
+    role.functions[_key4Func(theContract, funcSig)] = funcScopedConfig;
 
     for (uint256 i = 0; i < argsCount; ++i) {
-      role.expectedValues[
-        _key4FuncArg(targetContract, funcSig, i)
-      ] = _compressExpectedValue(paramTypes[i], expectedValues[i]);
+      role.targetValues[
+        _key4FuncArg(theContract, funcSig, i)
+      ] = _compressTargetValue(parameterTypes[i], targetValues[i]);
     }
 
     emit ScopeFunction(
-      roleId,
-      targetContract,
+      roleName,
+      theContract,
       funcSig,
       isScopeds,
-      paramTypes,
-      cps,
-      expectedValues,
-      op,
-      funcScopedFlag
+      parameterTypes,
+      comparisons,
+      targetValues,
+      operation,
+      funcScopedConfig
     );
   }
 
-  function _compressExpectedValue(
-    ParameterType paramType,
-    bytes calldata expectedValue
+  function _compressTargetValue(
+    ParameterType parameterType,
+    bytes calldata targetValue
   ) internal pure returns (bytes32) {
     return
-      paramType == ParameterType.Static
-        ? bytes32(expectedValue)
-        : keccak256(expectedValue);
+      parameterType == ParameterType.Static
+        ? bytes32(targetValue)
+        : keccak256(targetValue);
   }
 
-  function _checkExpectedComparison(ParameterType paramType, Comparison cp)
-    internal
-    pure
-  {
-    // only supports 'eq' comparison for no-static type
-    if (paramType != ParameterType.Static && cp != Comparison.Eq) {
-      revert UnsuitableRelativeComparison();
+  function _enforceConfigComparison(
+    ParameterType parameterType,
+    Comparison comparison
+  ) internal pure {
+    if (parameterType != ParameterType.Static && comparison != Comparison.Eq) {
+      require(
+        false,
+        "Permissions: only supports eq comparison for non-static type"
+      );
     }
   }
 
-  function _checkExpectedValue(
-    ParameterType paramType,
-    bytes calldata expectedValue
+  function _enforceTargetValue(
+    ParameterType parameterType,
+    bytes calldata targetValue
   ) internal pure {
-    if (paramType == ParameterType.Static && expectedValue.length != 32) {
-      revert UnsuitableStaticExpectedValueSize();
+    if (parameterType == ParameterType.Static && targetValue.length != 32) {
+      require(false, "Permissions: length of static type value should be 32");
     }
 
     if (
-      paramType == ParameterType.Dynamic32 && expectedValue.length % 32 != 0
+      parameterType == ParameterType.Dynamic32 && targetValue.length % 32 != 0
     ) {
-      revert UnsuitableDynamic32ExpectedValueSize();
+      require(
+        false,
+        "Permissions: length of dynamic32 type value should be a multiples of 32"
+      );
     }
   }
 
@@ -473,42 +498,42 @@ library Permissions {
   // 5   bits -> unused
   // 8   bits -> length
   function _packLeft(
-    uint256 scopedFlag,
-    Operation op,
+    uint256 funcScopedConfig,
+    Operation operation,
     bool isBypass,
     uint256 length
   ) internal pure returns (uint256) {
     // Wipe the LEFT SIDE clean. Start from there
-    scopedFlag = (scopedFlag << 16) >> 16;
+    funcScopedConfig = (funcScopedConfig << 16) >> 16;
 
     // set options -> 256 - 2 = 254
-    scopedFlag |= uint256(op) << 254;
+    funcScopedConfig |= uint256(operation) << 254;
 
     // set isBypass -> 256 - 2 - 1 = 253
     if (isBypass) {
-      scopedFlag |= 1 << 253;
+      funcScopedConfig |= 1 << 253;
     }
 
     // set Length -> 48 + 96 + 96 = 240
-    scopedFlag |= length << 240;
+    funcScopedConfig |= length << 240;
 
-    return scopedFlag;
+    return funcScopedConfig;
   }
 
-  function _unpackLeft(uint256 scopedFlag)
+  function _unpackLeft(uint256 funcScopedConfig)
     internal
     pure
     returns (
-      Operation op,
+      Operation operation,
       bool isBypass,
       uint256 argsCount
     )
   {
     uint256 isBypassMask = 1 << 253;
 
-    op = Operation(scopedFlag >> 254);
-    isBypass = scopedFlag & isBypassMask != 0;
-    argsCount = (scopedFlag << 8) >> 248;
+    operation = Operation(funcScopedConfig >> 254);
+    isBypass = funcScopedConfig & isBypassMask != 0;
+    argsCount = (funcScopedConfig << 8) >> 248;
   }
 
   // RIGHT SIDE
@@ -516,46 +541,48 @@ library Permissions {
   // 96  bits -> paramType (2 bits per entry 48*2)
   // 96  bits -> paramComp (2 bits per entry 48*2)
   function _packRight(
-    uint256 scopedFlag,
+    uint256 funcScopedConfig,
     uint256 index,
     bool isScoped,
-    ParameterType paramType,
-    Comparison paramComp
+    ParameterType parameterType,
+    Comparison comparison
   ) internal pure returns (uint256) {
     uint256 isScopedMask = 1 << (index + 96 + 96);
-    uint256 paramTypeMask = 3 << (index * 2 + 96);
-    uint256 paramCompMask = 3 << (index * 2);
+    uint256 typeMask = 3 << (index * 2 + 96);
+    uint256 comparisonMask = 3 << (index * 2);
 
     if (isScoped) {
-      scopedFlag |= isScopedMask;
+      funcScopedConfig |= isScopedMask;
     } else {
-      scopedFlag &= ~isScopedMask;
+      funcScopedConfig &= ~isScopedMask;
     }
 
-    scopedFlag &= ~paramTypeMask;
-    scopedFlag |= uint256(paramType) << (index * 2 + 96);
+    funcScopedConfig &= ~typeMask;
+    funcScopedConfig |= uint256(parameterType) << (index * 2 + 96);
 
-    scopedFlag &= ~paramCompMask;
-    scopedFlag |= uint256(paramComp) << (index * 2);
+    funcScopedConfig &= ~comparisonMask;
+    funcScopedConfig |= uint256(comparison) << (index * 2);
 
-    return scopedFlag;
+    return funcScopedConfig;
   }
 
-  function _unpackRight(uint256 scopedFlag, uint256 index)
+  function _unpackRight(uint256 funcScopedConfig, uint256 index)
     internal
     pure
     returns (
       bool isScoped,
-      ParameterType paramType,
-      Comparison cp
+      ParameterType parameterType,
+      Comparison comparison
     )
   {
     uint256 isScopedMask = 1 << (index + 96 + 96);
-    uint256 paramTypeMask = 3 << (index * 2 + 96);
-    uint256 paramCompMask = 3 << (index * 2);
+    uint256 typeMask = 3 << (index * 2 + 96);
+    uint256 comparisonMask = 3 << (index * 2);
 
-    isScoped = (scopedFlag & isScopedMask) != 0;
-    paramType = ParameterType((scopedFlag & paramTypeMask) >> (index * 2 + 96));
-    cp = Comparison((scopedFlag & paramCompMask) >> (index * 2));
+    isScoped = (funcScopedConfig & isScopedMask) != 0;
+    parameterType = ParameterType(
+      (funcScopedConfig & typeMask) >> (index * 2 + 96)
+    );
+    comparison = Comparison((funcScopedConfig & comparisonMask) >> (index * 2));
   }
 }

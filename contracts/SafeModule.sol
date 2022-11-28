@@ -7,23 +7,18 @@ import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
-  string public constant version = "0.0.1";
-
+  string public constant version = "0.1.0";
   uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
-  error PermitReject(PermitSettledResult[] reason);
-  error BlankRoleId();
-  error RoleDeprecated(bytes32 roleId);
-
   event ModuleSetup(address owner, address safeProxy);
-  event AssignRoles(address member, bytes32[_MAX_ROLE_PER_MEMBER] roleIds);
-  event DeprecateRole(bytes32 roleId);
+  event AssignRoles(address member, bytes32[_MAX_ROLE_PER_MEMBER] roleNames);
+  event DeprecateRole(bytes32 roleName);
 
   event ExecTransaction(
     address to,
     uint256 value,
     bytes data,
-    Operation inputOP,
+    Operation operation,
     address sender
   );
 
@@ -51,46 +46,41 @@ contract SafeModule is Ownable {
     emit ModuleSetup(owner, safeProxy);
   }
 
-  modifier isValidRoleId(bytes32 roleId) {
-    if (roleId == 0) {
-      revert BlankRoleId();
-    } else if (deprecatedRoles[roleId]) {
-      revert RoleDeprecated(roleId);
-    }
+  modifier isValidRoleName(bytes32 roleName) {
+    require(roleName != 0, "SafeModule: empty role name");
+    require(!deprecatedRoles[roleName], "SafeModule: role deprecated");
 
     _;
   }
 
   /// @dev Assign roles to a member
   /// @param member address
-  /// @param roleIds Id of a roles
+  /// @param roleNames Id of a roles
   /// @notice Can only be called by owner
-  function assignRoles(address member, bytes32[] memory roleIds)
+  function assignRoles(address member, bytes32[] memory roleNames)
     external
     onlyOwner
   {
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      bytes32 roleId = i < roleIds.length ? roleIds[i] : bytes32(0);
-      if (deprecatedRoles[roleId]) {
-        revert RoleDeprecated(roleId);
-      }
+      bytes32 roleName = i < roleNames.length ? roleNames[i] : bytes32(0);
+      require(!deprecatedRoles[roleName], "SafeModule: role deprecated");
 
-      members[member][i] = roleId;
+      members[member][i] = roleName;
     }
 
     emit AssignRoles(member, members[member]);
   }
 
-  /// @dev Deprecate a roleId and this roleId can't used anymore
-  /// @param roleId Id of a role
+  /// @dev Deprecate a roleName and this roleName can't used anymore
+  /// @param roleName Id of a role
   /// @notice Can only be called by owner
-  function deprecateRole(bytes32 roleId)
+  function deprecateRole(bytes32 roleName)
     external
     onlyOwner
-    isValidRoleId(roleId)
+    isValidRoleName(roleName)
   {
-    deprecatedRoles[roleId] = true;
-    emit DeprecateRole(roleId);
+    deprecatedRoles[roleName] = true;
+    emit DeprecateRole(roleName);
   }
 
   /// @dev Get roles of an address for now
@@ -103,201 +93,222 @@ contract SafeModule is Ownable {
     validRoles = new bytes32[](_MAX_ROLE_PER_MEMBER);
 
     for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      bytes32 roleId = members[member][i];
+      bytes32 roleName = members[member][i];
 
-      if (roleId == 0 || deprecatedRoles[roleId]) {
+      if (roleName == 0 || deprecatedRoles[roleName]) {
         continue;
       }
 
-      validRoles[i] = roleId;
+      validRoles[i] = roleName;
     }
   }
 
-  /// @dev Allow the specific roleId to call the contract
-  /// @param roleId Id of a role
-  /// @param targetContract Allowed contract
-  /// @param op Defines the operation is call or delegateCall
+  function hasRole(address member, bytes32 roleName)
+    public
+    view
+    returns (bool)
+  {
+    bytes32[] memory validRoles = rolesOf(member);
+
+    for (uint256 i = 0; i < validRoles.length; ++i) {
+      if (validRoles[i] == roleName) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// @dev Allow the specific roleName to call the contract
+  /// @param roleName Id of a role
+  /// @param theContract Allowed contract
+  /// @param operation Defines the operation is call or delegateCall
   /// @notice Can only be called by owner
   function allowContract(
-    bytes32 roleId,
-    address targetContract,
-    Operation op
-  ) external onlyOwner isValidRoleId(roleId) {
-    Permissions.allowContract(roles[roleId], roleId, targetContract, op);
-  }
-
-  /// @dev Disable the specific roleId to call the contract
-  /// @param roleId Id of a role
-  /// @param targetContract Allowed contract
-  /// @notice Can only be called by owner
-  function revokeContract(bytes32 roleId, address targetContract)
-    external
-    onlyOwner
-    isValidRoleId(roleId)
-  {
-    Permissions.revokeContract(roles[roleId], roleId, targetContract);
-  }
-
-  /// @dev Allow the specific roleId to call the function of contract
-  /// @param roleId Id of a role
-  /// @param targetContract Allowed contract
-  /// @notice Can only be called by owner
-  function scopeContract(bytes32 roleId, address targetContract)
-    external
-    onlyOwner
-    isValidRoleId(roleId)
-  {
-    Permissions.scopeContract(roles[roleId], roleId, targetContract);
-  }
-
-  /// @dev Allow the specific roleId to call the function
-  /// @param roleId Id of a role
-  /// @param targetContract Allowed contract
-  /// @param funcSig Function selector
-  /// @param op Defines the operation is call or delegateCall
-  /// @notice Can only be called by owner
-  /// @notice Please call 'scopeContract' at the begin before config function
-  function allowFunction(
-    bytes32 roleId,
-    address targetContract,
-    bytes4 funcSig,
-    Operation op
-  ) external onlyOwner isValidRoleId(roleId) {
-    Permissions.allowFunction(
-      roles[roleId],
-      roleId,
-      targetContract,
-      funcSig,
-      op
+    bytes32 roleName,
+    address theContract,
+    Operation operation
+  ) external onlyOwner isValidRoleName(roleName) {
+    Permissions.allowContract(
+      roles[roleName],
+      roleName,
+      theContract,
+      operation
     );
   }
 
-  /// @dev Disable the specific roleId to call the function
-  /// @param roleId Id of a role
-  /// @param targetContract Allowed contract
+  /// @dev Disable the specific roleName to call the contract
+  /// @param roleName Id of a role
+  /// @param theContract Allowed contract
+  /// @notice Can only be called by owner
+  function revokeContract(bytes32 roleName, address theContract)
+    external
+    onlyOwner
+    isValidRoleName(roleName)
+  {
+    Permissions.revokeContract(roles[roleName], roleName, theContract);
+  }
+
+  /// @dev Allow the specific roleName to call the function of contract
+  /// @param roleName Id of a role
+  /// @param theContract Allowed contract
+  /// @notice Can only be called by owner
+  function scopeContract(bytes32 roleName, address theContract)
+    external
+    onlyOwner
+    isValidRoleName(roleName)
+  {
+    Permissions.scopeContract(roles[roleName], roleName, theContract);
+  }
+
+  /// @dev Allow the specific roleName to call the function
+  /// @param roleName Id of a role
+  /// @param theContract Allowed contract
+  /// @param funcSig Function selector
+  /// @param operation Defines the operation is call or delegateCall
+  /// @notice Can only be called by owner
+  /// @notice Please call 'scopeContract' at the begin before config function
+  function allowFunction(
+    bytes32 roleName,
+    address theContract,
+    bytes4 funcSig,
+    Operation operation
+  ) external onlyOwner isValidRoleName(roleName) {
+    Permissions.allowFunction(
+      roles[roleName],
+      roleName,
+      theContract,
+      funcSig,
+      operation
+    );
+  }
+
+  /// @dev Disable the specific roleName to call the function
+  /// @param roleName Id of a role
+  /// @param theContract Allowed contract
   /// @param funcSig Function selector
   /// @notice Can only be called by owner
   function revokeFunction(
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 funcSig
-  ) external onlyOwner isValidRoleId(roleId) {
-    Permissions.revokeFunction(roles[roleId], roleId, targetContract, funcSig);
+  ) external onlyOwner isValidRoleName(roleName) {
+    Permissions.revokeFunction(roles[roleName], roleName, theContract, funcSig);
   }
 
-  /// @dev Allow the specific roleId to call the function with specific parameters
-  /// @param roleId Id of a role
-  /// @param targetContract Allowed contract
+  /// @dev Allow the specific roleName to call the function with specific parameters
+  /// @param roleName Id of a role
+  /// @param theContract Allowed contract
   /// @param funcSig Function selector
   /// @param isScopeds List of parameter scoped config, false for un-scoped, true for scoped
-  /// @param paramTypes List of parameter types, Static, Dynamic or Dynamic32, use Static type if not scoped
-  /// @param cps List of parameter comparison types, Eq, Gt or Lt, use Eq if not scoped
-  /// @param expectedValues List of expected values, use '0x' if not scoped
-  /// @param op Defines the operation is call or delegateCall
+  /// @param parameterTypes List of parameter types, Static, Dynamic or Dynamic32, use Static type if not scoped
+  /// @param comparisons List of parameter comparison types, Eq, Gt or Lt, use Eq if not scoped
+  /// @param targetValues List of expected values, use '0x' if not scoped
+  /// @param operation Defines the operation is call or delegateCall
   /// @notice Can only be called by owner
   /// @notice Please call 'scopeContract' at the begin before config function
   function scopeFunction(
-    bytes32 roleId,
-    address targetContract,
+    bytes32 roleName,
+    address theContract,
     bytes4 funcSig,
     bool[] memory isScopeds,
-    ParameterType[] memory paramTypes,
-    Comparison[] memory cps,
-    bytes[] calldata expectedValues,
-    Operation op
-  ) external onlyOwner isValidRoleId(roleId) {
+    ParameterType[] memory parameterTypes,
+    Comparison[] memory comparisons,
+    bytes[] calldata targetValues,
+    Operation operation
+  ) external onlyOwner isValidRoleName(roleName) {
     Permissions.scopeFunction(
-      roles[roleId],
-      roleId,
-      targetContract,
+      roles[roleName],
+      roleName,
+      theContract,
       funcSig,
       isScopeds,
-      paramTypes,
-      cps,
-      expectedValues,
-      op
+      parameterTypes,
+      comparisons,
+      targetValues,
+      operation
     );
   }
 
   /// @dev Check then exec transaction
+  /// @param roleName role to execute this call
   /// @param to To address of the transaction
   /// @param value Ether value of the transaction
   /// @param data Data payload of the transaction
-  /// @param inputOP Operation to execute the transaction, only call or delegateCall
+  /// @param operation Operation to execute the transaction, only call or delegateCall
   function execTransactionFromModule(
+    bytes32 roleName,
     address to,
     uint256 value,
     bytes calldata data,
-    Operation inputOP
+    Operation operation
   ) public {
-    _execTransaction(to, value, data, inputOP);
+    _execTransaction(roleName, to, value, data, operation);
   }
 
-  struct Call {
+  struct Exec {
+    bytes32 roleName;
     address to;
     uint256 value;
     bytes data;
-    Operation inputOP;
+    Operation operation;
   }
 
-  function execTransactionsFromModule(Call[] calldata calls) public {
-    require(calls.length > 0, "Nothing to call");
+  function execTransactionsFromModule(Exec[] calldata execs) public {
+    require(execs.length > 0, "SafeModule: Nothing to call");
 
-    for (uint256 i = 0; i < calls.length; ++i) {
-      Call memory call = calls[i];
-      _execTransaction(call.to, call.value, call.data, call.inputOP);
+    for (uint256 i = 0; i < execs.length; ++i) {
+      Exec memory exec = execs[i];
+
+      _execTransaction(
+        exec.roleName,
+        exec.to,
+        exec.value,
+        exec.data,
+        exec.operation
+      );
     }
   }
 
   function _execTransaction(
+    bytes32 roleName,
     address to,
     uint256 value,
     bytes memory data,
-    Operation inputOP
-  ) internal {
+    Operation operation
+  ) internal isValidRoleName(roleName) {
     require(
-      inputOP == Operation.Call || inputOP == Operation.DelegateCall,
-      "Confused operation"
+      operation == Operation.Call || operation == Operation.DelegateCall,
+      "SafeModule: only support call or delegatecall"
     );
-    _checkPermission(to, data, inputOP);
+    _verifyPermission(roleName, to, data, operation);
 
     require(
       GnosisSafe(payable(_safeProxy)).execTransactionFromModule(
         to,
         value,
         data,
-        inputOP == Operation.DelegateCall
-          ? Enum.Operation.DelegateCall
-          : Enum.Operation.Call
+        operation == Operation.DelegateCall
+          ? GnosisSafeEnum.Operation.DelegateCall
+          : GnosisSafeEnum.Operation.Call
       ),
-      "Failed in execution in safe"
+      "SafeModule: execute fail on gnosis safe"
     );
 
-    emit ExecTransaction(to, value, data, inputOP, _msgSender());
+    emit ExecTransaction(to, value, data, operation, _msgSender());
   }
 
-  function _checkPermission(
+  function _verifyPermission(
+    bytes32 roleName,
     address to,
     bytes memory data,
-    Operation inputOP
+    Operation operation
   ) internal view {
-    bytes32[] memory validRoles = rolesOf(_msgSender());
-    PermitSettledResult[] memory results = new PermitSettledResult[](
-      _MAX_ROLE_PER_MEMBER
+    require(
+      hasRole(_msgSender(), roleName),
+      "SafeModule: sender doesn't have this role"
     );
 
-    for (uint256 i = 0; i < _MAX_ROLE_PER_MEMBER; ++i) {
-      bytes32 roleId = validRoles[i];
-      if (roleId == 0) {
-        continue;
-      }
-
-      results[i] = Permissions.check(roles[roleId], to, data, inputOP);
-      if (results[i] == PermitSettledResult.Fulfilled) {
-        return;
-      }
-    }
-
-    revert PermitReject(results);
+    Permissions.verify(roles[roleName], to, data, operation);
   }
 }

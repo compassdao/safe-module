@@ -13,7 +13,7 @@ export const multicallProxy = async (
   const uniswap = new ethers.Contract(uniswapAddress, uniV3Abi, ethers.provider)
   const decodedCall = uniswap.interface.decodeFunctionData("multicall", data)
 
-  const calls: SafeModule.CallStruct[] = [
+  const calls: SafeModule.ExecStruct[] = [
     {
       to: uniswapAddress,
       value: 0,

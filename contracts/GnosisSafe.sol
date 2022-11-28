@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 /// @title Enum - Collection of enums
 /// @author Richard Meissner - <richard@gnosis.pm>
-contract Enum {
+contract GnosisSafeEnum {
   enum Operation {
     Call,
     DelegateCall
@@ -20,6 +20,6 @@ interface GnosisSafe {
     address to,
     uint256 value,
     bytes memory data,
-    Enum.Operation operation
+    GnosisSafeEnum.Operation operation
   ) external returns (bool success);
 }

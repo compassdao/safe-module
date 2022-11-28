@@ -2,41 +2,37 @@ import { ethers } from "hardhat"
 import {
   Comparison,
   Operation,
-  padPermitSettledResult,
   ParameterType,
-  PermitSettledResult,
-  ROLE_ID,
+  DEFAULT_ROLE_NAME,
   safeModuleFixture,
 } from "./fixture/safeModuleFixture"
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
 
-const prepareDeployment = async () => {
-  const customOwnerSafeModuleFixture = async () => {
-    const [owner] = await ethers.getSigners()
-    return safeModuleFixture(owner.address)
-  }
+const prepareFixture = async () => {
+  const fixture = await loadFixture(safeModuleFixture)
+  const { safeModule, testContract, owner, other } = fixture
 
-  const fixture = await loadFixture(customOwnerSafeModuleFixture)
-  const { safeModule, testContract } = fixture
-  const [owner, other] = await ethers.getSigners()
+  await safeModule
+    .connect(owner)
+    .assignRoles(other.address, [DEFAULT_ROLE_NAME])
 
   const { data: doNothingData } =
     await testContract.populateTransaction.doNothing()
-  await safeModule.connect(owner).assignRoles(other.address, [ROLE_ID])
-  return { ...fixture, owner, other, doNothingData: doNothingData! }
+
+  return { ...fixture, doNothingData: doNothingData! }
 }
 
 describe("Comparison", () => {
   it("revert if input length mismatch", async () => {
-    const { safeModule, testContract, owner, permissions, doNothingData } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, doNothingData } =
+      await prepareFixture()
 
     await expect(
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, false],
@@ -45,13 +41,13 @@ describe("Comparison", () => {
           ["0x", "0x"],
           Operation.Call
         )
-    ).to.revertedWithCustomError(permissions, "ArraysDifferentLength")
+    ).to.revertedWith("Permissions: length of arrays should be the same")
 
     await expect(
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, false],
@@ -60,13 +56,13 @@ describe("Comparison", () => {
           ["0x", "0x"],
           Operation.Call
         )
-    ).to.revertedWithCustomError(permissions, "ArraysDifferentLength")
+    ).to.revertedWith("Permissions: length of arrays should be the same")
 
     await expect(
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, false],
@@ -75,13 +71,13 @@ describe("Comparison", () => {
           ["0x", "0x", "0x"],
           Operation.Call
         )
-    ).to.revertedWithCustomError(permissions, "ArraysDifferentLength")
+    ).to.revertedWith("Permissions: length of arrays should be the same")
 
     await expect(
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, false],
@@ -94,14 +90,14 @@ describe("Comparison", () => {
   })
 
   it("enforces comparison for scopeFunction", async () => {
-    const { safeModule, testContract, owner, permissions, doNothingData } =
-      await prepareDeployment()
+    const { safeModule, testContract, owner, doNothingData } =
+      await prepareFixture()
 
     await expect(
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, true],
@@ -110,13 +106,15 @@ describe("Comparison", () => {
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
           Operation.Call
         )
-    ).to.be.revertedWithCustomError(permissions, "UnsuitableRelativeComparison")
+    ).to.revertedWith(
+      "Permissions: only supports eq comparison for non-static type"
+    )
 
     await expect(
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, true],
@@ -132,7 +130,7 @@ describe("Comparison", () => {
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, true],
@@ -148,7 +146,7 @@ describe("Comparison", () => {
       safeModule
         .connect(owner)
         .scopeFunction(
-          ROLE_ID,
+          DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
           [true, true],
@@ -161,12 +159,13 @@ describe("Comparison", () => {
   })
 
   it("passes an eq comparison", async () => {
-    const { safeModule, testContract, owner, other } = await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareFixture()
 
     const invoke = async (val: number) =>
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testContract.address,
           0,
           (await testContract.populateTransaction.fnWithSingleParam(val)).data!,
@@ -178,11 +177,14 @@ describe("Comparison", () => {
     )
 
     // scope contract then scope function with parameters
-    await safeModule.connect(owner).scopeContract(ROLE_ID, testContract.address)
+    await safeModule
+      .connect(owner)
+      .scopeContract(DEFAULT_ROLE_NAME, testContract.address)
+
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [true],
@@ -192,21 +194,21 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke(321))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(321)).to.be.revertedWith(
+      "Permissions: input value isn't equal to target value"
+    )
+
     await expect(invoke(123)).to.be.emit(testContract, "FnWithSingleParam")
   })
 
-  it('"passes an eq comparison for dynamic"', async () => {
-    const { safeModule, testContract, owner, other } = await prepareDeployment()
+  it("passes an eq comparison for dynamic", async () => {
+    const { safeModule, testContract, owner, other } = await prepareFixture()
 
     const invoke = async (a: boolean, s: string) =>
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testContract.address,
           0,
           (await testContract.populateTransaction.fnWithTwoMixedParams(a, s))
@@ -219,11 +221,14 @@ describe("Comparison", () => {
     )
 
     // scope contract then scope function with parameters
-    await safeModule.connect(owner).scopeContract(ROLE_ID, testContract.address)
+    await safeModule
+      .connect(owner)
+      .scopeContract(DEFAULT_ROLE_NAME, testContract.address)
+
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [false, true],
@@ -237,24 +242,25 @@ describe("Comparison", () => {
       testContract,
       "FnWithTwoMixedParams"
     )
+
     await expect(invoke(true, "Some string")).to.be.emit(
       testContract,
       "FnWithTwoMixedParams"
     )
-    await expect(invoke(false, "Some other string"))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+
+    await expect(invoke(false, "Some other string")).to.be.revertedWith(
+      "Permissions: input value isn't equal to target value"
+    )
   })
 
   it("passes an eq comparison for dynamic - empty buffer", async () => {
-    const { safeModule, testContract, owner, other } = await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareFixture()
 
     const invoke = async (s: string) =>
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testContract.address,
           0,
           (await testContract.populateTransaction.dynamic(s)).data!,
@@ -266,11 +272,14 @@ describe("Comparison", () => {
     )
 
     // scope contract then scope function with parameters
-    await safeModule.connect(owner).scopeContract(ROLE_ID, testContract.address)
+    await safeModule
+      .connect(owner)
+      .scopeContract(DEFAULT_ROLE_NAME, testContract.address)
+
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [true],
@@ -281,20 +290,19 @@ describe("Comparison", () => {
       )
 
     await expect(invoke("0x")).to.be.emit(testContract, "Dynamic")
-    await expect(invoke("0x12"))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke("0x12")).to.be.revertedWith(
+      "Permissions: input value isn't equal to target value"
+    )
   })
 
   it("passes an eq comparison for dynamic32", async () => {
-    const { safeModule, testContract, owner, other } = await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareFixture()
 
     const invoke = async (s: string, extra: any[]) =>
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testContract.address,
           0,
           (await testContract.populateTransaction.dynamicDynamic32(s, extra))
@@ -307,11 +315,14 @@ describe("Comparison", () => {
     )
 
     // scope contract then scope function with parameters
-    await safeModule.connect(owner).scopeContract(ROLE_ID, testContract.address)
+    await safeModule
+      .connect(owner)
+      .scopeContract(DEFAULT_ROLE_NAME, testContract.address)
+
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [false, true],
@@ -321,11 +332,10 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke("Doesn't matter", ["0x0234", "0xabcd"]))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(
+      invoke("Doesn't matter", ["0x0234", "0xabcd"])
+    ).to.be.revertedWith("Permissions: input value isn't equal to target value")
+
     await expect(invoke("Doesn't matter", ["0x1234", "0xabcd"])).to.be.emit(
       testContract,
       "DynamicDynamic32"
@@ -333,12 +343,13 @@ describe("Comparison", () => {
   })
 
   it("passes an eq comparison for dynamic32 - empty array", async () => {
-    const { safeModule, testContract, owner, other } = await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareFixture()
 
     const invoke = async (extra: any[]) =>
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testContract.address,
           0,
           (await testContract.populateTransaction.dynamic32(extra)).data!,
@@ -350,11 +361,14 @@ describe("Comparison", () => {
     )
 
     // scope contract then scope function with parameters
-    await safeModule.connect(owner).scopeContract(ROLE_ID, testContract.address)
+    await safeModule
+      .connect(owner)
+      .scopeContract(DEFAULT_ROLE_NAME, testContract.address)
+
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [true],
@@ -365,20 +379,19 @@ describe("Comparison", () => {
       )
 
     await expect(invoke([])).to.be.emit(testContract, "Dynamic32")
-    await expect(invoke(["0xaabbccddeeff0011"]))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(["0xaabbccddeeff0011"])).to.be.revertedWith(
+      "Permissions: input value isn't equal to target value"
+    )
   })
 
   it("re-scopes all comparison", async () => {
-    const { safeModule, testContract, owner, other } = await prepareDeployment()
+    const { safeModule, testContract, owner, other } = await prepareFixture()
 
     const invoke = async (val: number) =>
       safeModule
         .connect(other)
         .execTransactionFromModule(
+          DEFAULT_ROLE_NAME,
           testContract.address,
           0,
           (await testContract.populateTransaction.fnWithSingleParam(val)).data!,
@@ -390,11 +403,14 @@ describe("Comparison", () => {
     )
 
     // scope contract then scope parameter with 'eq' comparison
-    await safeModule.connect(owner).scopeContract(ROLE_ID, testContract.address)
+    await safeModule
+      .connect(owner)
+      .scopeContract(DEFAULT_ROLE_NAME, testContract.address)
+
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [true],
@@ -404,17 +420,13 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke(321))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(321)).to.be.revertedWith(
+      "Permissions: input value isn't equal to target value"
+    )
 
-    await expect(invoke(123))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(123)).to.be.revertedWith(
+      "Permissions: input value isn't equal to target value"
+    )
 
     await expect(invoke(213)).to.be.emit(testContract, "FnWithSingleParam")
 
@@ -422,7 +434,7 @@ describe("Comparison", () => {
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [true],
@@ -433,23 +445,19 @@ describe("Comparison", () => {
       )
 
     await expect(invoke(321)).to.be.emit(testContract, "FnWithSingleParam")
-    await expect(invoke(123))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(123)).to.be.revertedWith(
+      "Permissions: input value isn't greater than target value"
+    )
 
-    await expect(invoke(213))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(213)).to.be.revertedWith(
+      "Permissions: input value isn't greater than target value"
+    )
 
     // re-scope to 'lt'
     await safeModule
       .connect(owner)
       .scopeFunction(
-        ROLE_ID,
+        DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
         [true],
@@ -459,17 +467,13 @@ describe("Comparison", () => {
         Operation.Call
       )
 
-    await expect(invoke(321))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(321)).to.be.revertedWith(
+      "Permissions: input value isn't less than target value"
+    )
 
     await expect(invoke(123)).to.be.emit(testContract, "FnWithSingleParam")
-    await expect(invoke(213))
-      .to.be.revertedWithCustomError(safeModule, "PermitReject")
-      .withArgs(
-        padPermitSettledResult(PermitSettledResult.ParametersScopeRejected)
-      )
+    await expect(invoke(213)).to.be.revertedWith(
+      "Permissions: input value isn't less than target value"
+    )
   })
 })

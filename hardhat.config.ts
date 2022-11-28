@@ -32,7 +32,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1,
+        runs: 200,
       },
     },
   },
@@ -53,6 +53,11 @@ const config: HardhatUserConfig = {
   abiExporter: {
     clear: true,
     flat: true,
+  },
+  gasReporter: {
+    enabled: true,
+    gasPrice: 21,
+    currency: "USD",
   },
 }
 
