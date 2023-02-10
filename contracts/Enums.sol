@@ -9,8 +9,8 @@ enum ParameterType {
 
 enum Comparison {
   Eq,
-  Gt,
-  Lt
+  Gte,
+  Lte
 }
 
 enum Scope {

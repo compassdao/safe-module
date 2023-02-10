@@ -7,7 +7,7 @@ import "./Enums.sol";
 import "./Permissions.sol";
 
 contract SafeModule is Ownable {
-  string public constant version = "0.1.1";
+  string public constant version = "0.2.0";
   uint256 internal constant _MAX_ROLE_PER_MEMBER = 16;
 
   event ModuleSetup(address owner, address safeProxy);
@@ -40,6 +40,8 @@ contract SafeModule is Ownable {
     );
 
     require(safeProxy != address(0), "Invalid safe proxy");
+    require(owner != address(0), "Invalid owner");
+
     _setupOwner(owner);
     _safeProxy = safeProxy;
 
@@ -202,7 +204,7 @@ contract SafeModule is Ownable {
   /// @param funcSig Function selector
   /// @param isScopeds List of parameter scoped config, false for un-scoped, true for scoped
   /// @param parameterTypes List of parameter types, Static, Dynamic or Dynamic32, use Static type if not scoped
-  /// @param comparisons List of parameter comparison types, Eq, Gt or Lt, use Eq if not scoped
+  /// @param comparisons List of parameter comparison types, Eq, Gte or Lte, use Eq if not scoped
   /// @param targetValues List of expected values, use '0x' if not scoped
   /// @param operation Defines the operation is call or delegateCall
   /// @notice Can only be called by owner
@@ -211,6 +213,7 @@ contract SafeModule is Ownable {
     bytes32 roleName,
     address theContract,
     bytes4 funcSig,
+    uint256 ethValueLimit,
     bool[] memory isScopeds,
     ParameterType[] memory parameterTypes,
     Comparison[] memory comparisons,
@@ -222,6 +225,7 @@ contract SafeModule is Ownable {
       roleName,
       theContract,
       funcSig,
+      ethValueLimit,
       isScopeds,
       parameterTypes,
       comparisons,
@@ -281,7 +285,7 @@ contract SafeModule is Ownable {
       operation == Operation.Call || operation == Operation.DelegateCall,
       "SafeModule: only support call or delegatecall"
     );
-    _verifyPermission(roleName, to, data, operation);
+    _verifyPermission(roleName, to, value, data, operation);
 
     require(
       GnosisSafe(payable(_safeProxy)).execTransactionFromModule(
@@ -301,6 +305,7 @@ contract SafeModule is Ownable {
   function _verifyPermission(
     bytes32 roleName,
     address to,
+    uint256 value,
     bytes memory data,
     Operation operation
   ) internal view {
@@ -309,6 +314,6 @@ contract SafeModule is Ownable {
       "SafeModule: sender doesn't have this role"
     );
 
-    Permissions.verify(roles[roleName], to, data, operation);
+    Permissions.verify(roles[roleName], to, value, data, operation);
   }
 }

@@ -43,8 +43,8 @@ export enum ParameterType {
 
 export enum Comparison {
   Eq,
-  Gt,
-  Lt,
+  Gte,
+  Lte,
 }
 
 export enum PermitSettledResult {

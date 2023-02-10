@@ -35,6 +35,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, false],
           [ParameterType.Static, ParameterType.Dynamic, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
@@ -50,6 +51,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, false],
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq, Comparison.Eq],
@@ -65,6 +67,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, false],
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
@@ -80,6 +83,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, false],
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
@@ -100,9 +104,10 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, true],
           [ParameterType.Static, ParameterType.Dynamic],
-          [Comparison.Eq, Comparison.Gt],
+          [Comparison.Eq, Comparison.Gte],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
           Operation.Call
         )
@@ -117,6 +122,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, true],
           [ParameterType.Static, ParameterType.Dynamic],
           [Comparison.Eq, Comparison.Eq],
@@ -133,9 +139,10 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, true],
           [ParameterType.Static, ParameterType.Dynamic],
-          [Comparison.Gt, Comparison.Eq],
+          [Comparison.Gte, Comparison.Eq],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
           Operation.Call
         )
@@ -149,9 +156,10 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true, true],
           [ParameterType.Static, ParameterType.Dynamic],
-          [Comparison.Lt, Comparison.Eq],
+          [Comparison.Lte, Comparison.Eq],
           [ethers.utils.defaultAbiCoder.encode(["bool"], [false]), "0x"],
           Operation.Call
         )
@@ -187,6 +195,7 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [true],
         [ParameterType.Static],
         [Comparison.Eq],
@@ -231,6 +240,7 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [false, true],
         [ParameterType.Static, ParameterType.Dynamic],
         [Comparison.Eq, Comparison.Eq],
@@ -282,6 +292,7 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [true],
         [ParameterType.Dynamic],
         [Comparison.Eq],
@@ -325,6 +336,7 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [false, true],
         [ParameterType.Dynamic, ParameterType.Dynamic32],
         [Comparison.Eq, Comparison.Eq],
@@ -371,6 +383,7 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [true],
         [ParameterType.Dynamic32],
         [Comparison.Eq],
@@ -413,6 +426,7 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [true],
         [ParameterType.Static],
         [Comparison.Eq],
@@ -437,20 +451,22 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [true],
         [ParameterType.Static],
-        [Comparison.Gt],
+        [Comparison.Gte],
         [ethers.utils.solidityPack(["uint256"], [213])],
         Operation.Call
       )
 
     await expect(invoke(321)).to.be.emit(testContract, "FnWithSingleParam")
     await expect(invoke(123)).to.be.revertedWith(
-      "Permissions: input value isn't greater than target value"
+      "Permissions: input value isn't greater than or equal to target value"
     )
 
-    await expect(invoke(213)).to.be.revertedWith(
-      "Permissions: input value isn't greater than target value"
+    await expect(invoke(213)).to.be.emit(testContract, "FnWithSingleParam")
+    await expect(invoke(212)).to.be.revertedWith(
+      "Permissions: input value isn't greater than or equal to target value"
     )
 
     // re-scope to 'lt'
@@ -460,20 +476,22 @@ describe("Comparison", () => {
         DEFAULT_ROLE_NAME,
         testContract.address,
         funcSig,
+        0,
         [true],
         [ParameterType.Static],
-        [Comparison.Lt],
+        [Comparison.Lte],
         [ethers.utils.solidityPack(["uint256"], [213])],
         Operation.Call
       )
 
     await expect(invoke(321)).to.be.revertedWith(
-      "Permissions: input value isn't less than target value"
+      "Permissions: input value isn't less than or equal to target value"
     )
 
     await expect(invoke(123)).to.be.emit(testContract, "FnWithSingleParam")
-    await expect(invoke(213)).to.be.revertedWith(
-      "Permissions: input value isn't less than target value"
+    await expect(invoke(213)).to.be.emit(testContract, "FnWithSingleParam")
+    await expect(invoke(214)).to.be.revertedWith(
+      "Permissions: input value isn't less than or equal to target value"
     )
   })
 
@@ -488,6 +506,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true],
           [3],
           [Comparison.Eq],
@@ -508,6 +527,7 @@ describe("Comparison", () => {
           DEFAULT_ROLE_NAME,
           testContract.address,
           doNothingData,
+          0,
           [true],
           [ParameterType.Static],
           [3],

@@ -11,4 +11,6 @@ contract TestSafeProxy {
     if (operation == 1) (success, ) = to.delegatecall(data);
     else (success, ) = to.call{value: value}(data);
   }
+
+  receive() external payable {}
 }

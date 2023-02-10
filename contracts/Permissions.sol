@@ -15,6 +15,8 @@ struct Role {
 
 library Permissions {
   uint256 internal constant _SCOPE_MAX_PARAMS = 48;
+  uint256 internal constant _ETH_VALUE_SLOT =
+    0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
 
   event AllowContract(
     bytes32 roleName,
@@ -45,6 +47,7 @@ library Permissions {
     bytes32 roleName,
     address theContract,
     bytes4 functionSig,
+    uint256 ethValueLimit,
     bool[] isScopeds,
     ParameterType[] parameterTypes,
     Comparison[] comparisons,
@@ -56,15 +59,17 @@ library Permissions {
   function verify(
     Role storage role,
     address to,
+    uint256 value,
     bytes calldata data,
     Operation operation
   ) public view {
-    _verifyTransaction(role, to, data, operation);
+    _verifyTransaction(role, to, value, data, operation);
   }
 
   function _verifyTransaction(
     Role storage role,
     address theContract,
+    uint256 value,
     bytes memory data,
     Operation operation
   ) internal view {
@@ -92,6 +97,7 @@ library Permissions {
       _verifyOperation(operation, configOperation);
 
       if (!isBypass) {
+        _verifyEthValue(role, theContract, value, data);
         _verifyParameters(role, funcScopedConfig, theContract, data);
       }
 
@@ -99,6 +105,20 @@ library Permissions {
     }
 
     require(false, "Permissions: should not be here");
+  }
+
+  function _verifyEthValue(
+    Role storage role,
+    address theContract,
+    uint256 value,
+    bytes memory data
+  ) internal view {
+    bytes4 funcSig = bytes4(data);
+    bytes32 key = _key4FuncArg(theContract, funcSig, _ETH_VALUE_SLOT);
+    require(
+      bytes32(value) <= role.targetValues[key],
+      "Permissions: eth value isn't less than or equal to limit"
+    );
   }
 
   function _verifyParameters(
@@ -144,16 +164,16 @@ library Permissions {
         "Permissions: input value isn't equal to target value"
       );
       return;
-    } else if (comparison == Comparison.Gt) {
+    } else if (comparison == Comparison.Gte) {
       require(
-        inputValue > targetValue,
-        "Permissions: input value isn't greater than target value"
+        inputValue >= targetValue,
+        "Permissions: input value isn't greater than or equal to target value"
       );
       return;
-    } else if (comparison == Comparison.Lt) {
+    } else if (comparison == Comparison.Lte) {
       require(
-        inputValue < targetValue,
-        "Permissions: input value isn't less than target value"
+        inputValue <= targetValue,
+        "Permissions: input value isn't less than or equal to target value"
       );
       return;
     }
@@ -391,6 +411,7 @@ library Permissions {
     bytes32 roleName,
     address theContract,
     bytes4 funcSig,
+    uint256 ethValueLimit,
     bool[] memory isScopeds,
     ParameterType[] memory parameterTypes,
     Comparison[] memory comparisons,
@@ -439,10 +460,18 @@ library Permissions {
       ] = _compressTargetValue(parameterTypes[i], targetValues[i]);
     }
 
+    role.targetValues[
+      _key4FuncArg(theContract, funcSig, _ETH_VALUE_SLOT)
+    ] = _compressTargetValue(
+      ParameterType.Static,
+      abi.encodePacked(ethValueLimit)
+    );
+
     emit ScopeFunction(
       roleName,
       theContract,
       funcSig,
+      ethValueLimit,
       isScopeds,
       parameterTypes,
       comparisons,
@@ -454,7 +483,7 @@ library Permissions {
 
   function _compressTargetValue(
     ParameterType parameterType,
-    bytes calldata targetValue
+    bytes memory targetValue
   ) internal pure returns (bytes32) {
     return
       parameterType == ParameterType.Static
