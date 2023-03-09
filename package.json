@@ -11,7 +11,8 @@
     "lint:eslint": "eslint --ext .js,.jsx,.ts,.tsx .",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier --write .",
-    "fix:eslint": "eslint --fix --ext .js,.jsx,.ts,.tsx ."
+    "fix:eslint": "eslint --fix --ext .js,.jsx,.ts,.tsx .",
+    "export-abi": "hardhat clear-abi & hardhat export-abi"
   },
   "lint-staged": {
     "*": [

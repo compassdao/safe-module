@@ -3,18 +3,23 @@ import { ethers } from "hardhat"
 async function main(owner: string, safeProxy: string) {
   const [deployer] = await ethers.getSigners()
   console.log("Deploying contracts with the account:", deployer.address)
-  console.log("Account balance:", (await deployer.getBalance()).toString())
+  console.log(
+    "Account balance: ",
+    await deployer.getBalance().then(ethers.utils.formatEther)
+  )
+  console.log("Account nonce: ", await deployer.getTransactionCount())
 
   console.log(`Deployment arguments. owner: ${owner}, safeProxy: ${safeProxy}`)
 
   const permissions = await ethers
     .getContractFactory("Permissions")
-    .then((factory) => factory.deploy())
+    .then((factory) => factory.connect(deployer).deploy())
 
   console.log(
     `Deploy Permissions library(${permissions.deployTransaction.hash})...`
   )
-  // await permissions.deployed()
+  console.log("Permissions address: ", permissions.address)
+  await permissions.deployed()
 
   const safeModule = await ethers
     .getContractFactory("SafeModule", {
@@ -22,7 +27,7 @@ async function main(owner: string, safeProxy: string) {
         Permissions: permissions.address,
       },
     })
-    .then((factory) => factory.deploy(owner, safeProxy))
+    .then((factory) => factory.connect(deployer).deploy(owner, safeProxy))
 
   console.log(`Deploy SafeModule(${safeModule.deployTransaction.hash})...`)
   await safeModule.deployed()
