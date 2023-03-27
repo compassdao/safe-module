@@ -49,6 +49,14 @@ const config: HardhatUserConfig = {
       ...sharedNetworkConfig,
       url: "https://rpc.ankr.com/polygon",
     },
+    optimism: {
+      ...sharedNetworkConfig,
+      url: "https://rpc.ankr.com/optimism",
+    },
+    arbitrum: {
+      ...sharedNetworkConfig,
+      url: "https://arb1.arbitrum.io/rpc",
+    },
   },
   abiExporter: {
     clear: true,
